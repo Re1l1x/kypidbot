@@ -3,3 +3,6 @@ __pycache__
 
 # configuration files
 src/config.py
+
+# database files
+*.db

@@ -32,3 +32,4 @@ tqdm==4.67.2
 transformers==5.0.0
 typer-slim==0.21.1
 typing_extensions==4.15.0
+python-telegram-bot==21.11
