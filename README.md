@@ -1,4 +1,4 @@
-# Heart Attack
+# Kupidbot
 
 ## Quick Start
 
