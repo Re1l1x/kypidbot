@@ -2,4 +2,4 @@
 __pycache__
 
 # configuration files
-config.py
+src/config.py
