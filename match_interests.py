@@ -1,6 +1,13 @@
+#!/usr/bin/env python3
+
+
 import json
 import logging
 import os
+import re
+import sys
+from dataclasses import dataclass
+from typing import TypeAlias
 
 os.environ["TQDM_DISABLE"] = "1"
 
@@ -13,7 +20,65 @@ logging.getLogger("sentence_transformers").setLevel(logging.ERROR)
 logging.getLogger("transformers").setLevel(logging.ERROR)
 
 
-def match_people(interests: list[str]) -> list[tuple[int, int, float]]:
+Pair: TypeAlias = tuple[int, int, float]
+
+
+@dataclass
+class User:
+    username: str
+    sex: str
+    interests: str
+
+
+@dataclass
+class Settings:
+    input_path: str
+    output_path: str
+
+
+def parse_users_from_json(path: str) -> list[User]:
+    with open(path) as f:
+        data = json.load(f)
+
+    return [User(**user_data) for user_data in data["users"]]
+
+
+def write_pairs_as_json(pairs: list[Pair], path: str):
+    output = [
+        {
+            "a": {
+                "username": users[i].username,
+                "sex": users[i].sex,
+                "interests": users[i].interests,
+            },
+            "b": {
+                "username": users[j].username,
+                "sex": users[j].sex,
+                "interests": users[j].interests,
+            },
+            "score": score,
+        }
+        for i, j, score in pairs
+    ]
+
+    with open(path, "w") as f:
+        json.dump(output, f, ensure_ascii=False, indent=4)
+
+
+def extract_preferences(users: list[User]) -> dict[int, set[str]]:
+    """Extract user preferences from interests."""
+    preferences = {}
+    pattern = r"@(\w+)"
+
+    for i, user in enumerate(users):
+        mentions = re.findall(pattern, user.interests)
+        if mentions:
+            preferences[i] = set(mentions)
+
+    return preferences
+
+
+def match_people(interests: list[str], users: list[User]) -> list[Pair]:
     model = SentenceTransformer(
         "paraphrase-multilingual-MiniLM-L12-v2",
         token=HF_TOKEN,
@@ -22,11 +87,29 @@ def match_people(interests: list[str]) -> list[tuple[int, int, float]]:
 
     sim_matrix = cosine_similarity(vectors)
 
+    preferences = extract_preferences(users)
+
     n = len(interests)
     scores = []
     for i in range(n):
         for j in range(i + 1, n):
-            scores.append((sim_matrix[i, j], i, j))
+            a, b = users[i], users[j]
+
+            # TODO: match `sex` by preferences. Introduce `looking_for` field for `User` dataclass
+            if a.sex == b.sex:
+                continue
+
+            base_score = float(sim_matrix[i, j])
+
+            a_wants_b = i in preferences and b.username in preferences[i]
+            b_wants_a = j in preferences and a.username in preferences[j]
+
+            if a_wants_b and b_wants_a:
+                base_score += 0.5
+            elif a_wants_b or b_wants_a:
+                base_score += 0.3
+
+            scores.append((base_score, i, j))
 
     scores.sort(reverse=True)
 
@@ -35,20 +118,52 @@ def match_people(interests: list[str]) -> list[tuple[int, int, float]]:
 
     for score, i, j in scores:
         if i not in used and j not in used:
-            pairs.append((i, j, round(float(score), 3)))
+            pairs.append((i, j, round(score, 3)))
             used.add(i)
             used.add(j)
 
     return pairs
 
 
+def parse_options() -> Settings:
+    args = sys.argv[1:]
+
+    if not args:
+        print("Usage: match input.json [-o output.json]", file=sys.stderr)
+        sys.exit(1)
+
+    output_path = "output.json"
+    input_path = None
+
+    i = 0
+    while i < len(args):
+        arg = args[i]
+
+        if arg == "-o":
+            if i + 1 >= len(args):
+                print("Error: -o requires an argument", file=sys.stderr)
+                sys.exit(1)
+            output_path = args[i + 1]
+            i += 2
+        else:
+            if input_path is not None:
+                print("Error: multiple input files specified", file=sys.stderr)
+                sys.exit(1)
+            input_path = arg
+            i += 1
+
+    if input_path is None:
+        print("Error: input file not specified", file=sys.stderr)
+        sys.exit(1)
+
+    return Settings(input_path=input_path, output_path=output_path)
+
+
 if __name__ == "__main__":
-    with open("input.json") as f:
-        people = json.load(f)
+    opts = parse_options()
 
-    pairs = match_people(people)
+    users = parse_users_from_json(opts.input_path)
+    interests = [u.interests for u in users]
 
-    output = [{"a": people[i], "b": people[j], "score": score} for i, j, score in pairs]
-
-    with open("output.json", "w") as f:
-        json.dump(output, f, ensure_ascii=False, indent=2)
+    pairs = match_people(interests, users)
+    write_pairs_as_json(pairs, opts.output_path)
