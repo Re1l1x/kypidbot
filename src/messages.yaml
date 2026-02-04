@@ -31,3 +31,22 @@ buttons:
 sex_labels:
   male: "мужской"
   female: "женский"
+
+stickerid:
+  prompt: "отправь мне стикер, я покажу его file_id"
+
+promote:
+  usage: "использование: /promote @username"
+  user_not_found: "пользователь @{username} не найден"
+  already_admin: "@{username} уже админ"
+  success: "@{username} теперь админ"
+
+demote:
+  usage: "использование: /demote @username"
+  user_not_found: "пользователь @{username} не найден"
+  not_admin: "@{username} не является админом"
+  success: "@{username} больше не админ"
+
+match:
+  not_enough_users: "недостаточно пользователей для формирования пар"
+  success: "готово! создано {pairs} пар из {users} пользователей"

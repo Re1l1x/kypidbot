@@ -17,6 +17,7 @@ class User:
     about: str
     state: str
     time_ranges: str
+    is_admin: bool = False
 
 
 class Database:
@@ -46,9 +47,17 @@ class Database:
                     sex TEXT,
                     about TEXT DEFAULT '',
                     state TEXT NOT NULL DEFAULT 'start',
-                    time_ranges TEXT NOT NULL DEFAULT '000000'
+                    time_ranges TEXT NOT NULL DEFAULT '000000',
+                    is_admin INTEGER NOT NULL DEFAULT 0
                 )
             """)
+            # Migration: add is_admin column to existing databases
+            cursor = conn.execute("PRAGMA table_info(users)")
+            columns = [row[1] for row in cursor.fetchall()]
+            if "is_admin" not in columns:
+                conn.execute(
+                    "ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0"
+                )
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS pairs (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -128,6 +137,15 @@ class Database:
             )
             return cursor.fetchone()
 
+    def get_user_by_username(self, username: str) -> Optional[sqlite3.Row]:
+        """Get user by username."""
+        with self.get_connection() as conn:
+            cursor = conn.execute(
+                "SELECT * FROM users WHERE username = ?",
+                (username,),
+            )
+            return cursor.fetchone()
+
     def set_user_sex(self, telegram_id: int, sex: str) -> None:
         """Set user's sex (male/female)."""
         with self.get_connection() as conn:
@@ -165,6 +183,25 @@ class Database:
             row = cursor.fetchone()
             return row["state"] if row else "start"
 
+    def is_admin(self, telegram_id: int) -> bool:
+        """Check if user is an admin."""
+        with self.get_connection() as conn:
+            cursor = conn.execute(
+                "SELECT is_admin FROM users WHERE telegram_id = ?",
+                (telegram_id,),
+            )
+            row = cursor.fetchone()
+            return bool(row["is_admin"]) if row else False
+
+    def set_admin(self, telegram_id: int, is_admin: bool) -> None:
+        """Set user's admin status."""
+        with self.get_connection() as conn:
+            conn.execute(
+                "UPDATE users SET is_admin = ? WHERE telegram_id = ?",
+                (1 if is_admin else 0, telegram_id),
+            )
+            conn.commit()
+
     def get_verified_users(self) -> list[User]:
         """Get all users who completed verification."""
         with self.get_connection() as conn:
@@ -185,6 +222,7 @@ class Database:
                     about=row["about"],
                     state=row["state"],
                     time_ranges=row["time_ranges"],
+                    is_admin=bool(row["is_admin"]),
                 )
                 for row in cursor.fetchall()
             ]

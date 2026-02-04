@@ -18,10 +18,7 @@ from config import DB_PATH, TELEGRAM_TOKEN
 from database import Database
 from matcher import match_people
 
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO,
-)
+logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
@@ -61,10 +58,8 @@ def set_to_binary(selected: set[str]) -> str:
     return "".join(binary)
 
 
-def create_time_keyboard(
-    selected_times: set[str], include_confirm: bool = True
-) -> InlineKeyboardMarkup:
-    """Create keyboard with time ranges and optional confirm button."""
+def create_time_keyboard(selected_times: set[str]) -> InlineKeyboardMarkup:
+    """Create keyboard with time ranges and confirm button (if any selected)."""
     keyboard = []
     for i in range(0, len(TIME_RANGES), 2):
         row = []
@@ -73,7 +68,7 @@ def create_time_keyboard(
             row.append(InlineKeyboardButton(text, callback_data=f"time_{time_range}"))
         keyboard.append(row)
 
-    if include_confirm:
+    if selected_times:
         keyboard.append(
             [
                 InlineKeyboardButton(
@@ -155,10 +150,7 @@ async def text_message_handler(update: Update, _: ContextTypes.DEFAULT_TYPE) -> 
         selected_times = binary_to_set(binary_str)
         keyboard = create_time_keyboard(selected_times)
 
-        await update.message.reply_text(
-            MESSAGES["about_received"]["message"],
-            reply_markup=keyboard,
-        )
+        await update.message.reply_text(MESSAGES["about_received"]["message"], reply_markup=keyboard)
 
 
 async def time_button_callback(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
@@ -200,7 +192,7 @@ async def stickerid_command(update: Update, _: ContextTypes.DEFAULT_TYPE) -> Non
         return
 
     awaiting_sticker.add(update.effective_user.id)
-    await update.message.reply_text("Send me a sticker and I'll print its file_id.")
+    await update.message.reply_text(MESSAGES["stickerid"]["prompt"])
 
 
 async def sticker_handler(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
@@ -215,9 +207,61 @@ async def sticker_handler(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     awaiting_sticker.discard(user_id)
     sticker = update.message.sticker
     logger.info(f"Sticker file_id: {sticker.file_id}")
-    await update.message.reply_text(
-        f"```\n{sticker.file_id}\n```", parse_mode="Markdown"
-    )
+    await update.message.reply_text(f"```\n{sticker.file_id}\n```", parse_mode="Markdown")
+
+
+async def promote_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle /promote command - grant admin rights to a user."""
+    if not update.message or not update.effective_user:
+        return
+
+    if not db.is_admin(update.effective_user.id):
+        return
+
+    if not context.args:
+        await update.message.reply_text(MESSAGES["promote"]["usage"])
+        return
+
+    username = context.args[0].lstrip("@")
+    target_user = db.get_user_by_username(username)
+
+    if not target_user:
+        await update.message.reply_text(MESSAGES["promote"]["user_not_found"].format(username=username))
+        return
+
+    if target_user["is_admin"]:
+        await update.message.reply_text(MESSAGES["promote"]["already_admin"].format(username=username))
+        return
+
+    db.set_admin(target_user["telegram_id"], True)
+    await update.message.reply_text(MESSAGES["promote"]["success"].format(username=username))
+
+
+async def demote_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle /demote command - revoke admin rights from a user."""
+    if not update.message or not update.effective_user:
+        return
+
+    if not db.is_admin(update.effective_user.id):
+        return
+
+    if not context.args:
+        await update.message.reply_text(MESSAGES["demote"]["usage"])
+        return
+
+    username = context.args[0].lstrip("@")
+    target_user = db.get_user_by_username(username)
+
+    if not target_user:
+        await update.message.reply_text(MESSAGES["demote"]["user_not_found"].format(username=username))
+        return
+
+    if not target_user["is_admin"]:
+        await update.message.reply_text(MESSAGES["demote"]["not_admin"].format(username=username))
+        return
+
+    db.set_admin(target_user["telegram_id"], False)
+    await update.message.reply_text(MESSAGES["demote"]["success"].format(username=username))
 
 
 async def match_command(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
@@ -228,7 +272,7 @@ async def match_command(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     users = db.get_verified_users()
 
     if len(users) < 2:
-        await update.message.reply_text("Not enough verified users to match.")
+        await update.message.reply_text(MESSAGES["match"]["not_enough_users"])
         return
 
     sticker_msg = await update.message.reply_sticker(
@@ -246,9 +290,7 @@ async def match_command(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         db.save_pair(dill.id, doe.id, score, time_intersection)
 
     await sticker_msg.delete()
-    await update.message.reply_text(
-        f"Matching complete! Created {len(pairs)} pairs from {len(users)} users."
-    )
+    await update.message.reply_text(MESSAGES["match"]["success"].format(pairs=len(pairs), users=len(users)))
 
 
 def main() -> None:
@@ -257,15 +299,13 @@ def main() -> None:
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("match", match_command))
     application.add_handler(CommandHandler("stickerid", stickerid_command))
+    application.add_handler(CommandHandler("promote", promote_command))
+    application.add_handler(CommandHandler("demote", demote_command))
 
     application.add_handler(CallbackQueryHandler(sex_callback, pattern="^sex_"))
-    application.add_handler(
-        CallbackQueryHandler(time_button_callback, pattern="^(time_|confirm_time)")
-    )
+    application.add_handler(CallbackQueryHandler(time_button_callback, pattern="^(time_|confirm_time)"))
 
-    application.add_handler(
-        MessageHandler(filters.TEXT & ~filters.COMMAND, text_message_handler)
-    )
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_message_handler))
     application.add_handler(MessageHandler(filters.Sticker.ALL, sticker_handler))
 
     logger.info("Starting bot...")
