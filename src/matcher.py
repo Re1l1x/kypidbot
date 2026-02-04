@@ -21,7 +21,7 @@ logging.getLogger("sentence_transformers").setLevel(logging.ERROR)
 logging.getLogger("transformers").setLevel(logging.ERROR)
 
 
-Pair: TypeAlias = tuple[int, int, float]
+Pair: TypeAlias = tuple[int, int, float, str]
 Preferences: TypeAlias = dict[int, set[str]]
 
 

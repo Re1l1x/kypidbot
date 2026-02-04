@@ -75,6 +75,16 @@ class Database:
                     description TEXT NOT NULL
                 )
             """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS meetings (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    pair_id INTEGER NOT NULL,
+                    place_id INTEGER NOT NULL,
+                    time TEXT NOT NULL,
+                    FOREIGN KEY (pair_id) REFERENCES pairs(id),
+                    FOREIGN KEY (place_id) REFERENCES places(id)
+                )
+            """)
             conn.commit()
 
     def save_user(
@@ -221,9 +231,7 @@ class Database:
                     last_name=row["last_name"],
                     is_bot=bool(row["is_bot"]),
                     language_code=row["language_code"],
-                    is_premium=bool(row["is_premium"])
-                    if row["is_premium"] is not None
-                    else None,
+                    is_premium=bool(row["is_premium"]) if row["is_premium"] is not None else False,
                     sex=row["sex"],
                     about=row["about"],
                     state=row["state"],
@@ -267,3 +275,27 @@ class Database:
         with self.get_connection() as conn:
             cursor = conn.execute("SELECT * FROM places")
             return cursor.fetchall()
+
+    def get_all_pairs(self) -> list[sqlite3.Row]:
+        """Get all pairs."""
+        with self.get_connection() as conn:
+            cursor = conn.execute("SELECT * FROM pairs")
+            return cursor.fetchall()
+
+    def save_meeting(self, pair_id: int, place_id: int, time: str) -> None:
+        """Save a meeting."""
+        with self.get_connection() as conn:
+            conn.execute(
+                "INSERT INTO meetings (pair_id, place_id, time) VALUES (?, ?, ?)",
+                (pair_id, place_id, time),
+            )
+            conn.commit()
+
+    def get_user_by_id(self, user_id: int) -> Optional[sqlite3.Row]:
+        """Get user by id (not telegram_id)."""
+        with self.get_connection() as conn:
+            cursor = conn.execute(
+                "SELECT * FROM users WHERE id = ?",
+                (user_id,),
+            )
+            return cursor.fetchone()

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import logging
+import random
 from functools import wraps
 from pathlib import Path
 
@@ -69,6 +70,23 @@ def set_to_binary(selected: set[str]) -> str:
     for time_range in TIME_RANGES:
         binary.append("1" if time_range in selected else "0")
     return "".join(binary)
+
+
+def pick_random_time(time_intersection: str) -> str:
+    """Pick random time from time intersection binary string.
+
+    Example: "101001" -> picks random time with 5min interval
+    in first hour of randomly selected range where bit is 1.
+    """
+    indices = [i for i, bit in enumerate(time_intersection) if bit == "1"]
+
+    index = random.choice(indices)
+    time_range = TIME_RANGES[index]
+
+    begin = [x.split(':')[0] for x in time_range.split(' -- ')][0]
+    minutes = random.choice(list(range(12))) * 5
+
+    return f'{begin}:{minutes:02d}'
 
 
 def create_time_keyboard(selected_times: set[str]) -> InlineKeyboardMarkup:
@@ -305,11 +323,59 @@ async def match_command(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(MESSAGES["match"]["success"].format(pairs=len(pairs), users=len(users)))
 
 
+@admin_only
+async def meet_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle /meet command - send meeting notifications to all pairs."""
+    if not update.message or not context.bot:
+        return
+
+    pairs = db.get_all_pairs()
+    if not pairs:
+        await update.message.reply_text(MESSAGES["meet"]["no_pairs"])
+        return
+
+    places = db.get_all_places()
+    if not places:
+        await update.message.reply_text(MESSAGES["meet"]["no_places"])
+        return
+
+    count = 0
+    for pair in pairs:
+        place = random.choice(places)
+        meeting_time = pick_random_time(pair["time_intersection"])
+
+        db.save_meeting(pair["id"], place["id"], meeting_time)
+
+        dill = db.get_user_by_id(pair["dill_id"])
+        doe = db.get_user_by_id(pair["doe_id"])
+
+        if dill and doe:
+            message = MESSAGES["meet"]["notification"].format(
+                place=place["description"],
+                time=meeting_time
+            )
+
+            try:
+                await context.bot.send_message(chat_id=dill["telegram_id"], text=message)
+            except Exception as e:
+                logger.error(f"Failed to send message to {dill['telegram_id']}: {e}")
+
+            try:
+                await context.bot.send_message(chat_id=doe["telegram_id"], text=message)
+            except Exception as e:
+                logger.error(f"Failed to send message to {doe['telegram_id']}: {e}")
+
+            count += 1
+
+    await update.message.reply_text(MESSAGES["meet"]["success"].format(count=count))
+
+
 def main() -> None:
     application = Application.builder().token(TELEGRAM_TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("match", match_command))
+    application.add_handler(CommandHandler("meet", meet_command))
     application.add_handler(CommandHandler("stickerid", stickerid_command))
     application.add_handler(CommandHandler("promote", promote_command))
     application.add_handler(CommandHandler("demote", demote_command))
