@@ -2,6 +2,7 @@ package callback
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	"github.com/jus1d/kypidbot/internal/config/messages"
@@ -14,8 +15,10 @@ func (h *Handler) Sex(c tele.Context) error {
 	cb := c.Callback()
 
 	sex := "female"
+	sexLabel := messages.M.UI.Buttons.Sex.Female
 	if cb.Unique == "sex_male" {
 		sex = "male"
+		sexLabel = messages.M.UI.Buttons.Sex.Male
 	}
 
 	if err := h.Registration.SetSex(context.Background(), sender.ID, sex); err != nil {
@@ -28,5 +31,10 @@ func (h *Handler) Sex(c tele.Context) error {
 		return c.Respond()
 	}
 
-	return h.DeleteAndSend(c, messages.M.Profile.About.Request)
+	content := fmt.Sprintf("%s\n\n%s %s", c.Message().Text, messages.M.UI.Chosen, sexLabel)
+	if _, err := h.Bot.Edit(c.Message(), content); err != nil {
+		slog.Error("edit sex message", sl.Err(err))
+	}
+
+	return c.Send(messages.M.Profile.About.Request)
 }

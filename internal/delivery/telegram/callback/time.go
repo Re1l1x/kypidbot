@@ -19,7 +19,25 @@ func (h *Handler) ConfirmTime(c tele.Context) error {
 		return c.Respond()
 	}
 
-	return h.DeleteAndSend(c, messages.M.Registration.Completed, view.ResubmitKeyboard())
+	binaryStr, err := h.Registration.GetTimeRanges(context.Background(), sender.ID)
+	if err != nil {
+		slog.Error("get time ranges", sl.Err(err))
+		return c.Respond()
+	}
+
+	selected := domain.BinaryToSet(binaryStr)
+	summary := messages.M.UI.Chosen
+	for _, tr := range domain.TimeRanges {
+		if selected[tr] {
+			summary += "\n- " + tr
+		}
+	}
+
+	if _, err := h.Bot.Edit(c.Message(), c.Message().Text+"\n\n"+summary); err != nil {
+		slog.Error("edit time message", sl.Err(err))
+	}
+
+	return c.Send(messages.M.Registration.Completed, view.ResubmitKeyboard())
 }
 
 func (h *Handler) Time(c tele.Context) error {
@@ -46,5 +64,5 @@ func (h *Handler) Time(c tele.Context) error {
 		return c.Respond()
 	}
 
-	return c.Edit(messages.M.Profile.About.Accepted, view.TimeKeyboard(selected))
+	return c.Edit(messages.M.Profile.Schedule.Request, view.TimeKeyboard(selected))
 }

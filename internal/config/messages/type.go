@@ -51,6 +51,7 @@ type RegistrationSection struct {
 
 type UISection struct {
 	Buttons ButtonsSection `yaml:"buttons" env-required:"true"`
+	Chosen  string         `yaml:"chosen" env-required:"true"`
 }
 
 type ButtonsSection struct {
@@ -122,12 +123,14 @@ type MeetingSection struct {
 }
 
 type MeetingInviteSection struct {
-	Message string `yaml:"message" env-required:"true"`
+	Message          string `yaml:"message" env-required:"true"`
+	WaitConfirmation string `yaml:"wait_confirmation" env-required:"true"`
 }
 
 type MeetingStatusSection struct {
 	Confirmed        string `yaml:"confirmed" env-required:"true"`
 	PartnerConfirmed string `yaml:"partner_confirmed" env-required:"true"`
+	BothConfirmed    string `yaml:"both_confirmed" env-required:"true"`
 	Cancelled        string `yaml:"cancelled" env-required:"true"`
 	PartnerCancelled string `yaml:"partner_cancelled" env-required:"true"`
 }
