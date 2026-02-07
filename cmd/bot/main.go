@@ -8,48 +8,52 @@ import (
 
 	"github.com/jus1d/kypidbot/internal/config"
 	"github.com/jus1d/kypidbot/internal/delivery/telegram"
+	"github.com/jus1d/kypidbot/internal/lib/logger/sl"
 	"github.com/jus1d/kypidbot/internal/repository/postgres"
 	"github.com/jus1d/kypidbot/internal/usecase"
 )
 
 func main() {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
-
 	cfg := config.MustLoad()
 
-	if err := telegram.LoadMessages("messages.yaml"); err != nil {
-		log.Error("load messages", "err", err)
-		os.Exit(1)
+	var level slog.Level
+	switch cfg.Env {
+	case config.EnvProduction:
+		level = slog.LevelInfo
+	default:
+		level = slog.LevelDebug
 	}
+
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: level})))
 
 	db, err := postgres.New(&cfg.Postgres)
 	if err != nil {
-		log.Error("open database", "err", err)
+		slog.Error("postgresql: failed to connect", sl.Err(err))
 		os.Exit(1)
 	}
 	defer db.Close()
 
+	slog.Info("postgresql: ok")
+
 	userRepo := postgres.NewUserRepo(db)
-	pairRepo := postgres.NewPairRepo(db)
 	placeRepo := postgres.NewPlaceRepo(db)
 	meetingRepo := postgres.NewMeetingRepo(db)
 
 	registration := usecase.NewRegistration(userRepo)
 	admin := usecase.NewAdmin(userRepo)
-	matching := usecase.NewMatching(userRepo, pairRepo, &cfg.Ollama)
-	meeting := usecase.NewMeeting(userRepo, pairRepo, placeRepo, meetingRepo)
+	matching := usecase.NewMatching(userRepo, meetingRepo, &cfg.Ollama)
+	meeting := usecase.NewMeeting(userRepo, placeRepo, meetingRepo)
 
 	bot, err := telegram.NewBot(
-		cfg.Telegram.Token,
+		cfg.Bot.Token,
 		registration,
 		admin,
 		matching,
 		meeting,
 		userRepo,
-		log,
 	)
 	if err != nil {
-		log.Error("create bot", "err", err)
+		slog.Error("failed to create the bot", sl.Err(err))
 		os.Exit(1)
 	}
 
@@ -61,6 +65,6 @@ func main() {
 	go bot.Start()
 
 	<-stop
-	log.Info("shutting down")
+	slog.Info("bot: shutting down...")
 	bot.Stop()
 }

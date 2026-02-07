@@ -3,9 +3,12 @@ package callback
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strconv"
 
+	"github.com/jus1d/kypidbot/internal/config/messages"
 	"github.com/jus1d/kypidbot/internal/delivery/telegram/view"
+	"github.com/jus1d/kypidbot/internal/lib/logger/sl"
 	tele "gopkg.in/telebot.v3"
 )
 
@@ -13,7 +16,7 @@ func (h *Handler) ConfirmMeeting(c tele.Context) error {
 	data := c.Callback().Data
 	meetingID, err := strconv.ParseInt(data, 10, 64)
 	if err != nil {
-		h.Log.Error("parse meeting id", "err", err, "data", data)
+		slog.Error("parse meeting id", sl.Err(err), "data", data)
 		return c.Respond()
 	}
 
@@ -21,58 +24,89 @@ func (h *Handler) ConfirmMeeting(c tele.Context) error {
 
 	ok, err := h.Meeting.ConfirmMeeting(context.Background(), meetingID, telegramID)
 	if err != nil {
-		h.Log.Error("confirm meeting", "err", err)
+		slog.Error("confirm meeting", sl.Err(err))
 		return c.Respond()
 	}
 	if !ok {
 		return c.Respond()
 	}
 
-	kb := view.CancelKeyboard(fmt.Sprintf("%d", meetingID))
-	originalText := c.Message().Text
-	newText := originalText + "\n\n" + view.Msg("meet", "confirmed")
-	if err := c.Edit(newText, kb); err != nil {
-		h.Log.Error("edit message", "err", err)
-	}
+	_ = c.Respond()
+
+	origmsg := c.Message()
 
 	partnerID, err := h.Meeting.GetPartnerTelegramID(context.Background(), meetingID, telegramID)
 	if err != nil {
-		h.Log.Error("get partner telegram id", "err", err)
+		slog.Error("get partner telegram id", sl.Err(err))
 		return nil
-	}
-
-	if partnerID != 0 {
-		_, err := h.Bot.Send(&tele.User{ID: partnerID}, view.Msg("meet", "partner_confirmed"))
-		if err != nil {
-			h.Log.Error("send partner confirmed", "err", err, "partner_id", partnerID)
-		}
 	}
 
 	both, meeting, err := h.Meeting.BothConfirmed(context.Background(), meetingID)
 	if err != nil {
-		h.Log.Error("check both confirmed", "err", err)
+		slog.Error("check both confirmed", sl.Err(err))
 		return nil
 	}
 
-	if both && meeting != nil {
-		placeDesc, _ := h.Meeting.GetPlaceDescription(context.Background(), meeting.PlaceID)
+	if !both {
+		place := ""
+		timeStr := ""
+		if meeting != nil && meeting.PlaceID != nil && meeting.Time != nil {
+			place, err = h.Meeting.GetPlaceDescription(context.Background(), *meeting.PlaceID)
+			slog.Error("get place description", sl.Err(err))
+			timeStr = *meeting.Time
+		}
 
-		finalMessage := view.Msgf(map[string]string{
-			"place": placeDesc,
-			"time":  meeting.Time,
-		}, "meet", "both_confirmed")
+		content := messages.Format(
+			messages.M.Meeting.Invite.Message+"\n"+messages.M.Meeting.Status.Confirmed,
+			map[string]string{"place": place, "time": timeStr},
+		)
 
-		cancelKb := view.CancelKeyboard(fmt.Sprintf("%d", meetingID))
+		cancelkb := view.CancelKeyboard(fmt.Sprintf("%d", meetingID))
+		if _, err := h.Bot.Edit(origmsg, content, cancelkb); err != nil {
+			slog.Error("edit confirmation message", sl.Err(err))
+		}
 
-		_, err := h.Bot.Send(&tele.User{ID: telegramID}, finalMessage, cancelKb)
-		if err != nil {
-			h.Log.Error("send both confirmed to user", "err", err)
+		h.storeMessageID(fmt.Sprintf("original_msg_%d_%d", meetingID, telegramID), origmsg.ID)
+
+		if partnerID != 0 {
+			msg, err := h.Bot.Send(&tele.User{ID: partnerID}, messages.M.Meeting.Status.PartnerConfirmed)
+			if err != nil {
+				slog.Error("send partner confirmed", sl.Err(err), "partner_id", partnerID)
+			} else {
+				h.storeMessageID(fmt.Sprintf("partner_msg_%d_%d", meetingID, partnerID), msg.ID)
+			}
+		}
+		return nil
+	}
+
+	if meeting != nil && meeting.PlaceID != nil && meeting.Time != nil {
+		place, _ := h.Meeting.GetPlaceDescription(context.Background(), *meeting.PlaceID)
+
+		finalMessage := messages.Format(messages.M.Meeting.Status.BothConfirmed, map[string]string{
+			"place": place,
+			"time":  *meeting.Time,
+		})
+
+		cancelkb := view.CancelKeyboard(fmt.Sprintf("%d", meetingID))
+
+		if err := h.DeleteAndSend(c, finalMessage, cancelkb); err != nil {
+			slog.Error("send both confirmed to user", sl.Err(err))
+		}
+
+		partnerNotifID := h.getMessageID(fmt.Sprintf("partner_msg_%d_%d", meetingID, telegramID))
+		if partnerNotifID != 0 {
+			_ = h.Bot.Delete(&tele.Message{Chat: &tele.Chat{ID: telegramID}, ID: partnerNotifID})
 		}
 
 		if partnerID != 0 {
-			_, err := h.Bot.Send(&tele.User{ID: partnerID}, finalMessage, cancelKb)
+			partnerOriginalID := h.getMessageID(fmt.Sprintf("original_msg_%d_%d", meetingID, partnerID))
+			if partnerOriginalID != 0 {
+				_ = h.Bot.Delete(&tele.Message{Chat: &tele.Chat{ID: partnerID}, ID: partnerOriginalID})
+			}
+
+			_, err := h.Bot.Send(&tele.User{ID: partnerID}, finalMessage, cancelkb)
 			if err != nil {
-				h.Log.Error("send both confirmed to partner", "err", err)
+				slog.Error("send both confirmed to partner", sl.Err(err))
 			}
 		}
 	}
@@ -84,7 +118,7 @@ func (h *Handler) CancelMeeting(c tele.Context) error {
 	data := c.Callback().Data
 	meetingID, err := strconv.ParseInt(data, 10, 64)
 	if err != nil {
-		h.Log.Error("parse meeting id", "err", err, "data", data)
+		slog.Error("parse meeting id", sl.Err(err), "data", data)
 		return c.Respond()
 	}
 
@@ -92,7 +126,7 @@ func (h *Handler) CancelMeeting(c tele.Context) error {
 
 	ok, err := h.Meeting.CancelMeeting(context.Background(), meetingID, telegramID)
 	if err != nil {
-		h.Log.Error("cancel meeting", "err", err)
+		slog.Error("cancel meeting", sl.Err(err))
 		return c.Respond()
 	}
 	if !ok {
@@ -104,10 +138,10 @@ func (h *Handler) CancelMeeting(c tele.Context) error {
 		partnerUsername = "unknown"
 	}
 
-	if err := c.Edit(view.Msgf(map[string]string{
+	if err := h.DeleteAndSend(c, messages.Format(messages.M.Meeting.Status.Cancelled, map[string]string{
 		"partner_username": partnerUsername,
-	}, "meet", "cancelled")); err != nil {
-		h.Log.Error("edit message", "err", err)
+	})); err != nil {
+		slog.Error("send cancelled message", sl.Err(err))
 	}
 
 	userUsername, _ := h.Users.GetUserUsername(context.Background(), telegramID)
@@ -117,11 +151,11 @@ func (h *Handler) CancelMeeting(c tele.Context) error {
 
 	partnerID, _ := h.Meeting.GetPartnerTelegramID(context.Background(), meetingID, telegramID)
 	if partnerID != 0 {
-		_, err := h.Bot.Send(&tele.User{ID: partnerID}, view.Msgf(map[string]string{
+		_, err := h.Bot.Send(&tele.User{ID: partnerID}, messages.Format(messages.M.Meeting.Status.PartnerCancelled, map[string]string{
 			"partner_username": userUsername,
-		}, "meet", "partner_cancelled"))
+		}))
 		if err != nil {
-			h.Log.Error("send partner cancelled", "err", err, "partner_id", partnerID)
+			slog.Error("send partner cancelled", sl.Err(err), "partner_id", partnerID)
 		}
 	}
 

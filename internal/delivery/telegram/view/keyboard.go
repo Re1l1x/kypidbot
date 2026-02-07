@@ -1,6 +1,7 @@
 package view
 
 import (
+	"github.com/jus1d/kypidbot/internal/config/messages"
 	"github.com/jus1d/kypidbot/internal/domain"
 	tele "gopkg.in/telebot.v3"
 )
@@ -8,8 +9,8 @@ import (
 func SexKeyboard() *tele.ReplyMarkup {
 	menu := &tele.ReplyMarkup{}
 
-	male := menu.Data(Msg("buttons", "sex", "male"), "sex_male")
-	female := menu.Data(Msg("buttons", "sex", "female"), "sex_female")
+	male := menu.Data(messages.M.UI.Buttons.Sex.Male, "sex_male")
+	female := menu.Data(messages.M.UI.Buttons.Sex.Female, "sex_female")
 
 	menu.Inline(
 		menu.Row(male, female),
@@ -35,7 +36,7 @@ func TimeKeyboard(selected map[string]bool) *tele.ReplyMarkup {
 	}
 
 	if len(selected) > 0 {
-		confirm := menu.Data(Msg("buttons", "confirm"), "confirm_time")
+		confirm := menu.Data(messages.M.UI.Buttons.Confirm, "confirm_time")
 		rows = append(rows, menu.Row(confirm))
 	}
 
@@ -45,7 +46,7 @@ func TimeKeyboard(selected map[string]bool) *tele.ReplyMarkup {
 
 func ResubmitKeyboard() *tele.ReplyMarkup {
 	menu := &tele.ReplyMarkup{}
-	btn := menu.Data(Msg("buttons", "resubmit"), "resubmit")
+	btn := menu.Data(messages.M.UI.Buttons.Resubmit, "resubmit")
 	menu.Inline(menu.Row(btn))
 	return menu
 }
@@ -53,8 +54,8 @@ func ResubmitKeyboard() *tele.ReplyMarkup {
 func MeetingKeyboard(meetingID string) *tele.ReplyMarkup {
 	menu := &tele.ReplyMarkup{}
 
-	confirm := menu.Data(Msg("meet", "confirm_button"), "confirm_meeting", meetingID)
-	cancel := menu.Data(Msg("meet", "cancel_button"), "cancel_meeting", meetingID)
+	confirm := menu.Data(messages.M.UI.Buttons.ConfirmMeeting, "confirm_meeting", meetingID)
+	cancel := menu.Data(messages.M.UI.Buttons.CancelMeeting, "cancel_meeting", meetingID)
 
 	menu.Inline(menu.Row(confirm, cancel))
 	return menu
@@ -62,7 +63,7 @@ func MeetingKeyboard(meetingID string) *tele.ReplyMarkup {
 
 func CancelKeyboard(meetingID string) *tele.ReplyMarkup {
 	menu := &tele.ReplyMarkup{}
-	cancel := menu.Data(Msg("meet", "cancel_button"), "cancel_meeting", meetingID)
+	cancel := menu.Data(messages.M.UI.Buttons.CancelMeeting, "cancel_meeting", meetingID)
 	menu.Inline(menu.Row(cancel))
 	return menu
 }

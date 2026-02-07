@@ -1,12 +1,11 @@
 package config
 
 import (
-	"log/slog"
 	"os"
 
 	"github.com/ilyakaznacheev/cleanenv"
 	"github.com/joho/godotenv"
-	"github.com/jus1d/kypidbot/internal/lib/logger/sl"
+	"github.com/jus1d/kypidbot/internal/config/messages"
 )
 
 const (
@@ -17,18 +16,20 @@ const (
 
 type Config struct {
 	Env      string   `yaml:"env" env-required:"true"`
-	Telegram Telegram `yaml:"telegram" env-required:"true"`
+	Bot      Bot      `yaml:"bot" env-required:"true"`
 	Ollama   Ollama   `yaml:"ollama" env-required:"true"`
 	Postgres Postgres `yaml:"postgres" env-required:"true"`
 }
 
 type Ollama struct {
-	Host string `yaml:"host" env-required:"true"`
-	Port string `yaml:"port" env-required:"true"`
+	Host  string `yaml:"host" env-required:"true"`
+	Port  string `yaml:"port" env-required:"true"`
+	Model string `yaml:"model" env-required:"true"`
 }
 
-type Telegram struct {
-	Token string `yaml:"token" env-required:"true"`
+type Bot struct {
+	Token        string `yaml:"token" env-required:"true"`
+	MessagesPath string `yaml:"messages_path" env-required:"true"`
 }
 
 type Postgres struct {
@@ -47,26 +48,23 @@ func MustLoad() *Config {
 	configPath := os.Getenv("CONFIG_PATH")
 
 	if configPath == "" {
-		slog.Error("missed CONFIG_PATH parameter")
-		os.Exit(1)
+		panic("missed CONFIG_PATH environment variable")
 	}
 
 	var err error
 	if _, err = os.Stat(configPath); os.IsNotExist(err) {
-		slog.Error("config file does not exist", slog.String("path", configPath))
-		os.Exit(1)
+		panic("config file does not exist: " + configPath)
 	}
 
 	var config Config
 
 	if err = cleanenv.ReadConfig(configPath, &config); err != nil {
-		slog.Error("cannot read config", sl.Err(err))
-		os.Exit(1)
+		panic("cannot read config: " + err.Error())
+	}
+
+	if err = cleanenv.ReadConfig(config.Bot.MessagesPath, &messages.M); err != nil {
+		panic("cannot read messages: " + err.Error())
 	}
 
 	return &config
-}
-
-func Empty() *Config {
-	return &Config{}
 }

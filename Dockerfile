@@ -10,6 +10,6 @@ FROM alpine:3.21
 WORKDIR /app
 COPY --from=builder /build/kypidbot .
 COPY --from=builder /build/migrate .
-COPY --from=builder /build/messages.yaml .
+COPY --from=builder /build/messages ./messages
 COPY --from=builder /build/migrations ./migrations
 CMD ["sh", "-c", "./migrate up && ./kypidbot"]

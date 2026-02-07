@@ -1,10 +1,13 @@
 env: "local" # local, dev or prod
 
-telegram:
+bot:
   token: "telegram-token"
+  messages_path: "./messages/messages.yaml"
 
-ollana:
-  host: "http://ollama:11434"
+ollama:
+  host: "http://ollama"
+  port: "11434"
+  model: "model-name" # ollama pull model-name before
 
 postgres:
   host: "postgres"

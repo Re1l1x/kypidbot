@@ -7,7 +7,6 @@ import (
 	"github.com/jus1d/kypidbot/internal/delivery/telegram/callback"
 	"github.com/jus1d/kypidbot/internal/delivery/telegram/command"
 	"github.com/jus1d/kypidbot/internal/delivery/telegram/message"
-	"github.com/jus1d/kypidbot/internal/delivery/telegram/view"
 	"github.com/jus1d/kypidbot/internal/domain"
 	"github.com/jus1d/kypidbot/internal/usecase"
 	tele "gopkg.in/telebot.v3"
@@ -20,11 +19,6 @@ type Bot struct {
 	matching     *usecase.Matching
 	meeting      *usecase.Meeting
 	users        domain.UserRepository
-	log          *slog.Logger
-}
-
-func LoadMessages(path string) error {
-	return view.LoadMessages(path)
 }
 
 func NewBot(
@@ -34,11 +28,11 @@ func NewBot(
 	matching *usecase.Matching,
 	meeting *usecase.Meeting,
 	users domain.UserRepository,
-	log *slog.Logger,
 ) (*Bot, error) {
 	pref := tele.Settings{
-		Token:  token,
-		Poller: &tele.LongPoller{Timeout: 10 * time.Second},
+		Token:     token,
+		Poller:    &tele.LongPoller{Timeout: 10 * time.Second},
+		ParseMode: tele.ModeHTML,
 	}
 
 	bot, err := tele.NewBot(pref)
@@ -53,7 +47,6 @@ func NewBot(
 		matching:     matching,
 		meeting:      meeting,
 		users:        users,
-		log:          log,
 	}, nil
 }
 
@@ -64,7 +57,6 @@ func (b *Bot) Setup() {
 		Matching:     b.matching,
 		Meeting:      b.meeting,
 		Bot:          b.bot,
-		Log:          b.log,
 	}
 
 	cb := &callback.Handler{
@@ -72,12 +64,10 @@ func (b *Bot) Setup() {
 		Meeting:      b.meeting,
 		Users:        b.users,
 		Bot:          b.bot,
-		Log:          b.log,
 	}
 
 	msg := &message.Handler{
 		Registration: b.registration,
-		Log:          b.log,
 	}
 
 	btnSexMale := tele.Btn{Unique: "sex_male"}
@@ -88,9 +78,10 @@ func (b *Bot) Setup() {
 	btnConfirmMeeting := tele.Btn{Unique: "confirm_meeting"}
 	btnCancelMeeting := tele.Btn{Unique: "cancel_meeting"}
 
+	b.bot.Use(LogUpdates)
+
 	b.bot.Handle("/start", cmd.Start)
-	b.bot.Handle("/match", cmd.Match, b.AdminOnly)
-	b.bot.Handle("/meet", cmd.Meet, b.AdminOnly)
+	b.bot.Handle("/mm", cmd.MM, b.AdminOnly)
 	b.bot.Handle("/promote", cmd.Promote, b.AdminOnly)
 	b.bot.Handle("/demote", cmd.Demote, b.AdminOnly)
 
@@ -107,7 +98,7 @@ func (b *Bot) Setup() {
 }
 
 func (b *Bot) Start() {
-	b.log.Info("starting bot")
+	slog.Info("bot: ok")
 	b.bot.Start()
 }
 
