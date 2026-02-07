@@ -103,7 +103,7 @@ func (r *MeetingRepo) ClearMeetings(ctx context.Context) error {
 
 func (r *MeetingRepo) GetMeetingsStartingIn(ctx context.Context, interval time.Duration) ([]domain.Meeting, error) {
 	secs := fmt.Sprintf("%ds", int(interval.Seconds()))
-	rows, err := r.db.QueryContext(ctx, `SELECT * FROM meetings WHERE time >= NOW() AND time <= NOW() + $1::interval`, secs)
+	rows, err := r.db.QueryContext(ctx, `SELECT * FROM meetings WHERE time >= NOW() AND time <= NOW() + $1::interval AND users_notified = FALSE`, secs)
 	if err != nil {
 		return nil, err
 	}

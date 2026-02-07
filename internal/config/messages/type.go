@@ -29,6 +29,7 @@ type ProfileSection struct {
 	Sex      SexOnboardingSection `yaml:"sex" env-required:"true"`
 	About    AboutSection         `yaml:"about" env-required:"true"`
 	Schedule ScheduleSection      `yaml:"schedule" env-required:"true"`
+	Reminder string               `yaml:"reminder" env-required:"true"`
 }
 
 type SexOnboardingSection struct {

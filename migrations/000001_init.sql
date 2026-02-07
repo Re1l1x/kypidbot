@@ -12,6 +12,7 @@ CREATE TABLE users (
     sex TEXT,
     about TEXT NOT NULL DEFAULT '',
     state TEXT NOT NULL DEFAULT 'start',
+    registration_notified BOOLEAN NOT NULL DEFAULT FALSE,
     time_ranges TEXT NOT NULL DEFAULT '000000',
     is_admin BOOLEAN NOT NULL DEFAULT FALSE,
     referral_code TEXT UNIQUE,

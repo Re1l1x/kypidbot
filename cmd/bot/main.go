@@ -66,7 +66,10 @@ func main() {
 
 	notifCtx, notifCancel := context.WithCancel(context.Background())
 	defer notifCancel()
-	go notifications.Go(notifCtx, &cfg.Notifications, bot.TeleBot(), userRepo, placeRepo, meetingRepo)
+	notificator := notifications.New(&cfg.Notifications, bot.TeleBot(), userRepo, placeRepo, meetingRepo)
+	notificator.Register(notificator.MeetingReminder)
+	notificator.Register(notificator.RegisterReminder)
+	go notificator.Run(notifCtx)
 
 	go bot.Start()
 

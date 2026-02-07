@@ -6,21 +6,22 @@ import (
 )
 
 type User struct {
-	TelegramID   int64
-	Username     string
-	FirstName    string
-	LastName     string
-	IsBot        bool
-	LanguageCode string
-	IsPremium    bool
-	Sex          string
-	About        string
-	State        string
-	TimeRanges   string
-	IsAdmin      bool
-	ReferralCode string
-	ReferrerID   *int64
-	CreatedAt    time.Time
+	TelegramID           int64
+	Username             string
+	FirstName            string
+	LastName             string
+	IsBot                bool
+	LanguageCode         string
+	IsPremium            bool
+	Sex                  string
+	About                string
+	State                string
+	RegistrationNotified bool
+	TimeRanges           string
+	IsAdmin              bool
+	ReferralCode         string
+	ReferrerID           *int64
+	CreatedAt            time.Time
 }
 
 type UserRepository interface {
@@ -41,4 +42,6 @@ type UserRepository interface {
 	GetUserByReferralCode(ctx context.Context, code string) (*User, error)
 	SetReferralCode(ctx context.Context, telegramID int64, code string) error
 	SetReferrer(ctx context.Context, telegramID int64, referrerID int64) error
+	MarkNotified(ctx context.Context, telegramID int64) error
+	GetNotCompleted(ctx context.Context, interval time.Duration) ([]User, error)
 }

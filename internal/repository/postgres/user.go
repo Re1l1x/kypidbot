@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
+	"time"
 
 	"github.com/jus1d/kypidbot/internal/domain"
 )
@@ -36,7 +38,7 @@ func (r *UserRepo) SaveUser(ctx context.Context, u *domain.User) error {
 func (r *UserRepo) GetUser(ctx context.Context, telegramID int64) (*domain.User, error) {
 	row := r.db.QueryRowContext(ctx, `
 		SELECT telegram_id, username, first_name, last_name, is_bot,
-		       language_code, is_premium, sex, about, state, time_ranges, is_admin,
+		       language_code, is_premium, sex, about, state, registration_notified, time_ranges, is_admin,
 		       referral_code, referrer_id, created_at
 		FROM users WHERE telegram_id = $1`, telegramID)
 	return scanUser(row)
@@ -45,7 +47,7 @@ func (r *UserRepo) GetUser(ctx context.Context, telegramID int64) (*domain.User,
 func (r *UserRepo) GetUserByUsername(ctx context.Context, username string) (*domain.User, error) {
 	row := r.db.QueryRowContext(ctx, `
 		SELECT telegram_id, username, first_name, last_name, is_bot,
-		       language_code, is_premium, sex, about, state, time_ranges, is_admin,
+		       language_code, is_premium, sex, about, state, registration_notified, time_ranges, is_admin,
 		       referral_code, referrer_id, created_at
 		FROM users WHERE username = $1`, username)
 	return scanUser(row)
@@ -54,7 +56,7 @@ func (r *UserRepo) GetUserByUsername(ctx context.Context, username string) (*dom
 func (r *UserRepo) GetUserByReferralCode(ctx context.Context, code string) (*domain.User, error) {
 	row := r.db.QueryRowContext(ctx, `
 		SELECT telegram_id, username, first_name, last_name, is_bot,
-		       language_code, is_premium, sex, about, state, time_ranges, is_admin,
+		       language_code, is_premium, sex, about, state, registration_notified, time_ranges, is_admin,
 		       referral_code, referrer_id, created_at
 		FROM users WHERE referral_code = $1`, code)
 	return scanUser(row)
@@ -135,7 +137,7 @@ func (r *UserRepo) SetReferrer(ctx context.Context, telegramID int64, referrerID
 func (r *UserRepo) GetVerifiedUsers(ctx context.Context) ([]domain.User, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT telegram_id, username, first_name, last_name, is_bot,
-		       language_code, is_premium, sex, about, state, time_ranges, is_admin,
+		       language_code, is_premium, sex, about, state, registration_notified, time_ranges, is_admin,
 		       referral_code, referrer_id, created_at
 		FROM users WHERE state = 'completed'`)
 	if err != nil {
@@ -157,7 +159,7 @@ func (r *UserRepo) GetVerifiedUsers(ctx context.Context) ([]domain.User, error) 
 func (r *UserRepo) GetAdmins(ctx context.Context) ([]domain.User, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT telegram_id, username, first_name, last_name, is_bot,
-		       language_code, is_premium, sex, about, state, time_ranges, is_admin,
+		       language_code, is_premium, sex, about, state, registration_notified, time_ranges, is_admin,
 		       referral_code, referrer_id, created_at
 		FROM users WHERE is_admin = true`)
 	if err != nil {
@@ -228,7 +230,7 @@ func scanUserFromRows(rows *sql.Rows) (*domain.User, error) {
 	err := rows.Scan(
 		&u.TelegramID, &username, &firstName, &lastName,
 		&u.IsBot, &languageCode, &u.IsPremium, &sex, &u.About,
-		&u.State, &u.TimeRanges, &u.IsAdmin,
+		&u.State, &u.RegistrationNotified, &u.TimeRanges, &u.IsAdmin,
 		&referralCode, &referrerID, &u.CreatedAt,
 	)
 	if err != nil {
@@ -246,4 +248,31 @@ func scanUserFromRows(rows *sql.Rows) (*domain.User, error) {
 	}
 
 	return &u, nil
+}
+
+func (r *UserRepo) MarkNotified(ctx context.Context, telegramID int64) error {
+	_, err := r.db.ExecContext(ctx, `UPDATE users SET registration_notified = TRUE WHERE telegram_id = $1`, telegramID)
+	return err
+}
+
+func (r *UserRepo) GetNotCompleted(ctx context.Context, interval time.Duration) ([]domain.User, error) {
+	secs := fmt.Sprintf("%ds", int(interval.Seconds()))
+	rows, err := r.db.QueryContext(ctx, `SELECT telegram_id, username, first_name, last_name, is_bot,
+	       language_code, is_premium, sex, about, state, registration_notified, time_ranges, is_admin,
+	       referral_code, referrer_id, created_at
+	FROM users WHERE now() - created_at > $1::interval AND registration_notified = FALSE AND state <> 'completed'`, secs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []domain.User
+	for rows.Next() {
+		u, err := scanUserFromRows(rows)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, *u)
+	}
+	return users, rows.Err()
 }

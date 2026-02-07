@@ -29,8 +29,9 @@ type Bot struct {
 }
 
 type Notifications struct {
-	PollInterval time.Duration `yaml:"poll_interval" env-default:"5s"`
-	UpcomingIn   time.Duration `yaml:"upcoming_in" env-default:"1h"`
+	PollInterval           time.Duration `yaml:"poll_interval" env-default:"5s"`
+	DateUpcomingIn         time.Duration `yaml:"date_upcoming_in" env-default:"1h"`
+	RegistrationReminderIn time.Duration `yaml:"registration_reminder_in" env-default:"24h"`
 }
 
 type Ollama struct {

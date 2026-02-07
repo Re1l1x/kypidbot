@@ -6,13 +6,37 @@ import (
 	"time"
 
 	"github.com/jus1d/kypidbot/internal/config"
-	"github.com/jus1d/kypidbot/internal/config/messages"
 	"github.com/jus1d/kypidbot/internal/domain"
 	"github.com/jus1d/kypidbot/internal/lib/logger/sl"
 	tele "gopkg.in/telebot.v3"
 )
 
-func Go(ctx context.Context, c *config.Notifications, bot *tele.Bot, users domain.UserRepository, places domain.PlaceRepository, meetings domain.MeetingRepository) {
+type NotifyFunc func(ctx context.Context) error
+
+type Notificator struct {
+	bot      *tele.Bot
+	users    domain.UserRepository
+	places   domain.PlaceRepository
+	meetings domain.MeetingRepository
+	cfg      *config.Notifications
+	funcs    []NotifyFunc
+}
+
+func New(cfg *config.Notifications, bot *tele.Bot, users domain.UserRepository, places domain.PlaceRepository, meetings domain.MeetingRepository) *Notificator {
+	return &Notificator{
+		bot:      bot,
+		users:    users,
+		places:   places,
+		meetings: meetings,
+		cfg:      cfg,
+	}
+}
+
+func (n *Notificator) Register(fns ...NotifyFunc) {
+	n.funcs = append(n.funcs, fns...)
+}
+
+func (n *Notificator) Run(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -20,67 +44,13 @@ func Go(ctx context.Context, c *config.Notifications, bot *tele.Bot, users domai
 		default:
 		}
 
-		list, err := meetings.GetMeetingsStartingIn(ctx, c.UpcomingIn)
-		if err != nil {
-			slog.Error("notifications: get meetings", sl.Err(err))
-			sleep(ctx, c.PollInterval)
-			continue
-		}
-
-		for _, m := range list {
-			if m.UsersNotified {
-				continue
-			}
-
-			if m.DillState != domain.StateConfirmed || m.DoeState != domain.StateConfirmed {
-				continue
-			}
-
-			if m.PlaceID == nil || m.Time == nil {
-				continue
-			}
-
-			dill, err := users.GetUser(ctx, m.DillID)
-			if err != nil {
-				slog.Error("notifications: get dill", sl.Err(err))
-				continue
-			}
-
-			doe, err := users.GetUser(ctx, m.DoeID)
-			if err != nil {
-				slog.Error("notifications: get doe", sl.Err(err))
-				continue
-			}
-
-			if dill == nil || doe == nil {
-				continue
-			}
-
-			place, err := places.GetPlaceDescription(ctx, *m.PlaceID)
-			if err != nil {
-				slog.Error("notifications: get place description", sl.Err(err))
-				continue
-			}
-
-			msg := messages.Format(messages.M.Meeting.Reminder, map[string]string{
-				"place": place,
-				"time":  domain.Timef(*m.Time),
-			})
-
-			if _, err := bot.Send(&tele.User{ID: dill.TelegramID}, msg); err != nil {
-				slog.Error("notifications: send to dill", sl.Err(err), "telegram_id", dill.TelegramID)
-			}
-
-			if _, err := bot.Send(&tele.User{ID: doe.TelegramID}, msg); err != nil {
-				slog.Error("notifications: send to doe", sl.Err(err), "telegram_id", doe.TelegramID)
-			}
-
-			if err := meetings.MarkNotified(ctx, m.ID); err != nil {
-				slog.Error("notifications: mark notified", sl.Err(err), "meeting_id", m.ID)
+		for _, fn := range n.funcs {
+			if err := fn(ctx); err != nil {
+				slog.Error("notifications: notify func failed", sl.Err(err))
 			}
 		}
 
-		sleep(ctx, c.PollInterval)
+		sleep(ctx, n.cfg.PollInterval)
 	}
 }
 

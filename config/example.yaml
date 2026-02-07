@@ -6,7 +6,8 @@ bot:
 
 notifications:
   poll_interval: 1s
-  upcoming_in: 1h
+  date_upcoming_in: 1h
+  registration_reminder_in: 24h
 
 ollama:
   host: "http://ollama"
