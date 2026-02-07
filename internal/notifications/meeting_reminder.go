@@ -11,7 +11,7 @@ import (
 )
 
 func (n *Notificator) MeetingReminder(ctx context.Context) error {
-	list, err := n.meetings.GetMeetingsStartingIn(ctx, n.cfg.DateUpcomingIn)
+	list, err := n.meetings.GetMeetingsStartingIn(ctx, n.config.DateUpcomingIn)
 	if err != nil {
 		return err
 	}

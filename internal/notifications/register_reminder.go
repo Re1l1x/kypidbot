@@ -10,7 +10,7 @@ import (
 )
 
 func (n *Notificator) RegisterReminder(ctx context.Context) error {
-	list, err := n.users.GetNotCompleted(ctx, n.cfg.RegistrationReminderIn)
+	list, err := n.users.GetNotCompleted(ctx, n.config.RegistrationReminderIn)
 	if err != nil {
 		return err
 	}

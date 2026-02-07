@@ -18,17 +18,17 @@ type Notificator struct {
 	users    domain.UserRepository
 	places   domain.PlaceRepository
 	meetings domain.MeetingRepository
-	cfg      *config.Notifications
+	config   *config.Notifications
 	funcs    []NotifyFunc
 }
 
-func New(cfg *config.Notifications, bot *tele.Bot, users domain.UserRepository, places domain.PlaceRepository, meetings domain.MeetingRepository) *Notificator {
+func New(c *config.Notifications, bot *tele.Bot, users domain.UserRepository, places domain.PlaceRepository, meetings domain.MeetingRepository) *Notificator {
 	return &Notificator{
 		bot:      bot,
 		users:    users,
 		places:   places,
 		meetings: meetings,
-		cfg:      cfg,
+		config:   c,
 	}
 }
 
@@ -50,7 +50,7 @@ func (n *Notificator) Run(ctx context.Context) {
 			}
 		}
 
-		sleep(ctx, n.cfg.PollInterval)
+		sleep(ctx, n.config.PollInterval)
 	}
 }
 

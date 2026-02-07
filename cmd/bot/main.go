@@ -64,17 +64,16 @@ func main() {
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 
-	notifCtx, notifCancel := context.WithCancel(context.Background())
-	defer notifCancel()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	notificator := notifications.New(&cfg.Notifications, bot.TeleBot(), userRepo, placeRepo, meetingRepo)
 	notificator.Register(notificator.MeetingReminder)
 	notificator.Register(notificator.RegisterReminder)
-	go notificator.Run(notifCtx)
 
+	go notificator.Run(ctx)
 	go bot.Start()
 
 	<-stop
 	slog.Info("bot: shutting down...")
-	notifCancel()
 	bot.Stop()
 }
