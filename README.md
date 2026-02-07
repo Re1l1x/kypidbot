@@ -6,14 +6,14 @@
 
 Fill up the config in `./config` and set environment variables: `CONFIG_PATH` -- where config for the bot is located, `POSTGRES_PASSWORD` -- password, with which postgres will start
 
-Pull model for  vectorizing abouts
-
-```bash
-$ docker exec ollama ollama pull paraphrase-multilingual
-```
-
 Run compose
 
 ```bash
 $ docker compose up -d
+```
+
+Pull model for  vectorizing abouts
+
+```bash
+$ docker exec ollama ollama pull mxbai-embed-large
 ```
