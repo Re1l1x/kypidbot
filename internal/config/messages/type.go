@@ -73,6 +73,7 @@ type ButtonsSection struct {
 	ConfirmMeeting string     `yaml:"confirm_meeting" env-required:"true"`
 	CancelMeeting  string     `yaml:"cancel_meeting" env-required:"true"`
 	CancelSupport  string     `yaml:"cancel_support" env-required:"true"`
+	HowItWorks     string     `yaml:"how_it_works" env-required:"true"`
 }
 
 type SexButtons struct {

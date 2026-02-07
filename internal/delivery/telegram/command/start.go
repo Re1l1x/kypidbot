@@ -33,7 +33,7 @@ func (h *Handler) Start(c tele.Context) error {
 		return nil
 	}
 
-	if err := c.Send(messages.M.Start.Welcome); err != nil {
+	if err := c.Send(messages.M.Start.Welcome, view.HowItWorksKeyboard()); err != nil {
 		return err
 	}
 

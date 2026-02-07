@@ -51,6 +51,13 @@ func ResubmitKeyboard() *tele.ReplyMarkup {
 	return menu
 }
 
+func HowItWorksKeyboard() *tele.ReplyMarkup {
+	menu := &tele.ReplyMarkup{}
+	btn := menu.Data(messages.M.UI.Buttons.HowItWorks, "how_it_works")
+	menu.Inline(menu.Row(btn))
+	return menu
+}
+
 func MeetingKeyboard(meetingID string) *tele.ReplyMarkup {
 	menu := &tele.ReplyMarkup{}
 
