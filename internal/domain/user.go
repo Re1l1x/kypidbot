@@ -41,4 +41,12 @@ type UserRepository interface {
 	GetUserByReferralCode(ctx context.Context, code string) (*User, error)
 	SetReferralCode(ctx context.Context, telegramID int64, code string) error
 	SetReferrer(ctx context.Context, telegramID int64, referrerID int64) error
+	GetReferralLeaderboard(ctx context.Context, limit int) ([]ReferralLeaderboardEntry, error)
+}
+
+type ReferralLeaderboardEntry struct {
+    ReferrerID    int64  `json:"referrer_id"`
+    ReferralCount int    `json:"referral_count"`
+    Username      string `json:"username"`
+    FirstName     string `json:"first_name"`
 }

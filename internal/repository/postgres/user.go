@@ -247,3 +247,50 @@ func scanUserFromRows(rows *sql.Rows) (*domain.User, error) {
 
 	return &u, nil
 }
+
+func (r *UserRepo) GetReferralLeaderboard(ctx context.Context, limit int) ([]domain.ReferralLeaderboardEntry, error) {
+    if limit <= 0 {
+        limit = 10
+    }
+    
+    rows, err := r.db.QueryContext(ctx, `
+        SELECT 
+            users.referrer_id,
+            COUNT(*) as referral_count,
+            u.username,
+            u.first_name
+        FROM users
+        JOIN users u ON users.referrer_id = u.telegram_id
+        WHERE users.referrer_id IS NOT NULL
+        GROUP BY users.referrer_id, u.username, u.first_name
+        ORDER BY referral_count DESC
+        LIMIT $1
+    `, limit)
+    
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+    
+    var leaderboard []domain.ReferralLeaderboardEntry
+    for rows.Next() {
+        var entry domain.ReferralLeaderboardEntry
+        var username, firstName sql.NullString
+        
+        err := rows.Scan(
+            &entry.ReferrerID,
+            &entry.ReferralCount,
+            &username,
+            &firstName,
+        )
+        if err != nil {
+            return nil, err
+        }
+        
+        entry.Username = username.String
+        entry.FirstName = firstName.String
+        leaderboard = append(leaderboard, entry)
+    }
+    
+    return leaderboard, rows.Err()
+}

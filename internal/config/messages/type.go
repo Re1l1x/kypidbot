@@ -49,6 +49,7 @@ type CommandSection struct {
 	About   string         `yaml:"about" env-required:"true"`
 	Invite  string         `yaml:"invite" env-required:"true"`
 	Support SupportSection `yaml:"support" env-required:"true"`
+	Leaderboard  LeaderboardSection  `yaml:"leaderboard" env-required:"true"`
 }
 
 type SupportSection struct {
@@ -152,4 +153,10 @@ type MeetingStatusSection struct {
 
 type MeetingSpecialSection struct {
 	FullMatchNoTime string `yaml:"full_match_no_time" env-required:"true"`
+}
+
+type LeaderboardSection struct {
+	Title  string `yaml:"title" env-required:"true"`
+	Empty  string `yaml:"empty" env-required:"true"`
+	Footer string `yaml:"footer" env-required:"true"`
 }
