@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"io"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/jus1d/kypidbot/internal/config"
 	"github.com/jus1d/kypidbot/internal/delivery/telegram"
+	"github.com/jus1d/kypidbot/internal/lib/logger/daily"
 	"github.com/jus1d/kypidbot/internal/lib/logger/sl"
 	"github.com/jus1d/kypidbot/internal/notifications"
 	"github.com/jus1d/kypidbot/internal/repository/postgres"
@@ -26,7 +28,13 @@ func main() {
 		level = slog.LevelDebug
 	}
 
-	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: level})))
+	writer := daily.NewLogsWriter("logs", c.Env)
+	multi := io.MultiWriter(os.Stdout, writer)
+	handler := slog.NewJSONHandler(multi, &slog.HandlerOptions{
+		Level: level,
+	})
+
+	slog.SetDefault(slog.New(handler))
 
 	db, err := postgres.New(&c.Postgres)
 	if err != nil {
