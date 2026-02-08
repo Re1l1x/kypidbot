@@ -58,6 +58,7 @@ func main() {
 	meeting := usecase.NewMeeting(userRepo, placeRepo, meetingRepo)
 
 	bot, err := telegram.NewBot(
+		c.Env,
 		c.Bot.Token,
 		registration,
 		admin,
@@ -76,17 +77,17 @@ func main() {
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	notificator := notifications.New(&c.Notifications, bot.TeleBot(), userRepo, placeRepo, meetingRepo)
 	notificator.Register(notificator.MeetingReminder)
 	notificator.Register(notificator.RegisterReminder)
 	notificator.Register(notificator.InviteReminder)
 
 	go notificator.Run(ctx)
-	go bot.Start()
+	go bot.Start(ctx)
 	slog.Info("notifications: ok", slog.String("poll_interval", c.Notifications.PollInterval.String()))
 
 	<-stop
+	cancel()
 	slog.Info("bot: shutting down...")
 	bot.Stop()
 }
