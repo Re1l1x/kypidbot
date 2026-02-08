@@ -36,7 +36,7 @@ func (h *Handler) ConfirmTime(c tele.Context) error {
 		slog.Error("edit time message", sl.Err(err))
 	}
 
-	return c.Send(messages.M.Registration.Completed, view.ResubmitKeyboard())
+	return c.Send(messages.M.Registration.Completed, view.RegistrationCompletedKeyboard(false))
 }
 
 func (h *Handler) Time(c tele.Context) error {

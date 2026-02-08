@@ -34,6 +34,7 @@ type User struct {
 	InviteNotified       bool
 	TimeRanges           string
 	IsAdmin              bool
+	OptedOut             bool
 	ReferralCode         string
 	ReferrerID           *int64
 	CreatedAt            time.Time
@@ -61,6 +62,7 @@ type UserRepository interface {
 	GetNotCompleted(ctx context.Context, interval time.Duration) ([]User, error)
 	GetForInviteReminder(ctx context.Context, interval time.Duration) ([]User, error)
 	MarkInviteNotified(ctx context.Context, telegramID int64) error
+	SetOptedOut(ctx context.Context, telegramID int64, optedOut bool) error
 }
 
 const (

@@ -1,0 +1,55 @@
+services:
+  kypidbot:
+    image: ghcr.io/jus1d/kypidbot:latest
+    container_name: kypidbot
+    env_file:
+      - ./kypidbot.env
+    volumes:
+      - ./config:/app/config
+      - ./logs:/app/logs
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+
+  postgres:
+    image: postgres:17-alpine
+    container_name: postgres
+    env_file:
+      - ./postgres.env
+    environment:
+      POSTGRES_USER: kypidbot
+      POSTGRES_DB: kypidbot
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kypidbot"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: watchtower
+    command: --interval 30 kypidbot
+    environment:
+      WATCHTOWER_CLEANUP: "true"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  ollama_data:

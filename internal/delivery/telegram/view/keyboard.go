@@ -89,6 +89,19 @@ func ArrivedKeyboard(meetingID string) *tele.ReplyMarkup {
 	return menu
 }
 
+func RegistrationCompletedKeyboard(optedOut bool) *tele.ReplyMarkup {
+	menu := &tele.ReplyMarkup{}
+	resubmit := menu.Data(messages.M.UI.Buttons.Resubmit, "resubmit")
+	if optedOut {
+		optIn := menu.Data(messages.M.UI.Buttons.OptIn, "opt_out")
+		menu.Inline(menu.Row(resubmit), menu.Row(optIn))
+	} else {
+		optOut := menu.Data(messages.M.UI.Buttons.OptOut, "opt_out")
+		menu.Inline(menu.Row(resubmit), menu.Row(optOut))
+	}
+	return menu
+}
+
 func CantFindKeyboard(meetingID string) *tele.ReplyMarkup {
 	menu := &tele.ReplyMarkup{}
 	btn := menu.Data(messages.M.UI.Buttons.CantFind, "cant_find_partner", meetingID)
