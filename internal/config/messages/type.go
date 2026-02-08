@@ -88,6 +88,8 @@ type ButtonsSection struct {
 	HowItWorks     string     `yaml:"how_it_works" env-required:"true"`
 	Arrived        string     `yaml:"arrived" env-required:"true"`
 	CantFind       string     `yaml:"cant_find" env-required:"true"`
+	OptOut         string     `yaml:"opt_out" env-required:"true"`
+	OptIn          string     `yaml:"opt_in" env-required:"true"`
 }
 
 type SexButtons struct {
