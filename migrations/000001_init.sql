@@ -1,10 +1,18 @@
 -- +goose Up
+CREATE TYPE confirmation_state AS ENUM ('not_confirmed', 'confirmed', 'cancelled', 'arrived');
 
-CREATE TYPE confirmation_state AS ENUM ('not_confirmed', 'confirmed', 'cancelled');
+CREATE TYPE user_state AS ENUM (
+    'start',
+    'awaiting_sex',
+    'awaiting_about',
+    'awaiting_time',
+    'awaiting_support',
+    'awaiting_appearance',
+    'completed'
+);
 
 CREATE TABLE users (
-    id BIGSERIAL PRIMARY KEY,
-    telegram_id BIGINT UNIQUE NOT NULL,
+    telegram_id BIGINT PRIMARY KEY,
     username TEXT,
     first_name TEXT,
     last_name TEXT,
@@ -13,26 +21,34 @@ CREATE TABLE users (
     is_premium BOOLEAN NOT NULL DEFAULT FALSE,
     sex TEXT,
     about TEXT NOT NULL DEFAULT '',
-    state TEXT NOT NULL DEFAULT 'start',
+    state user_state NOT NULL DEFAULT 'start',
+    registration_notified BOOLEAN NOT NULL DEFAULT FALSE,
+    invite_notified BOOLEAN NOT NULL DEFAULT FALSE,
     time_ranges TEXT NOT NULL DEFAULT '000000',
-    is_admin BOOLEAN NOT NULL DEFAULT FALSE
+    is_admin BOOLEAN NOT NULL DEFAULT FALSE,
+    referral_code TEXT UNIQUE,
+    referrer_id BIGINT REFERENCES users(telegram_id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE places (
-    id BIGSERIAL PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     description TEXT NOT NULL
 );
 
 CREATE TABLE meetings (
-    id BIGSERIAL PRIMARY KEY,
-    dill_id BIGINT NOT NULL REFERENCES users(id),
-    doe_id BIGINT NOT NULL REFERENCES users(id),
+    id SERIAL PRIMARY KEY,
+    dill_id BIGINT NOT NULL REFERENCES users(telegram_id),
+    doe_id BIGINT NOT NULL REFERENCES users(telegram_id),
     pair_score DOUBLE PRECISION NOT NULL,
     is_fullmatch BOOLEAN NOT NULL DEFAULT FALSE,
-    place_id BIGINT REFERENCES places(id),
-    time TEXT,
+    place_id INTEGER REFERENCES places(id),
+    time TIMESTAMPTZ,
     dill_state confirmation_state NOT NULL DEFAULT 'not_confirmed',
-    doe_state confirmation_state NOT NULL DEFAULT 'not_confirmed'
+    doe_state confirmation_state NOT NULL DEFAULT 'not_confirmed',
+    users_notified BOOLEAN NOT NULL DEFAULT FALSE,
+    dill_cant_find BOOLEAN NOT NULL DEFAULT FALSE,
+    doe_cant_find BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 -- +goose Down
@@ -41,3 +57,4 @@ DROP TABLE IF EXISTS places;
 DROP TABLE IF EXISTS users;
 
 DROP TYPE IF EXISTS confirmation_state;
+DROP TYPE IF EXISTS user_state;

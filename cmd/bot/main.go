@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"io"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -8,25 +10,36 @@ import (
 
 	"github.com/jus1d/kypidbot/internal/config"
 	"github.com/jus1d/kypidbot/internal/delivery/telegram"
+	"github.com/jus1d/kypidbot/internal/lib/logger/daily"
 	"github.com/jus1d/kypidbot/internal/lib/logger/sl"
+	"github.com/jus1d/kypidbot/internal/notifications"
 	"github.com/jus1d/kypidbot/internal/repository/postgres"
 	"github.com/jus1d/kypidbot/internal/usecase"
+	"github.com/jus1d/kypidbot/internal/version"
 )
 
 func main() {
-	cfg := config.MustLoad()
+	c := config.MustLoad()
 
 	var level slog.Level
-	switch cfg.Env {
+	switch c.Env {
 	case config.EnvProduction:
 		level = slog.LevelInfo
 	default:
 		level = slog.LevelDebug
 	}
 
-	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: level})))
+	writer := daily.NewLogsWriter("logs", c.Env)
+	multi := io.MultiWriter(os.Stdout, writer)
+	handler := slog.NewJSONHandler(multi, &slog.HandlerOptions{
+		Level: level,
+	})
 
-	db, err := postgres.New(&cfg.Postgres)
+	slog.SetDefault(slog.New(handler))
+
+	slog.Info("bot: starting...", slog.String("env", c.Env), version.CommitAttr, version.BranchAttr)
+
+	db, err := postgres.New(&c.Postgres)
 	if err != nil {
 		slog.Error("postgresql: failed to connect", sl.Err(err))
 		os.Exit(1)
@@ -41,11 +54,12 @@ func main() {
 
 	registration := usecase.NewRegistration(userRepo)
 	admin := usecase.NewAdmin(userRepo)
-	matching := usecase.NewMatching(userRepo, meetingRepo, &cfg.Ollama)
+	matching := usecase.NewMatching(userRepo, meetingRepo, &c.Ollama)
 	meeting := usecase.NewMeeting(userRepo, placeRepo, meetingRepo)
 
 	bot, err := telegram.NewBot(
-		cfg.Bot.Token,
+		c.Env,
+		c.Bot.Token,
 		registration,
 		admin,
 		matching,
@@ -62,9 +76,18 @@ func main() {
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 
-	go bot.Start()
+	ctx, cancel := context.WithCancel(context.Background())
+	notificator := notifications.New(&c.Notifications, bot.TeleBot(), userRepo, placeRepo, meetingRepo)
+	notificator.Register(notificator.MeetingReminder)
+	notificator.Register(notificator.RegisterReminder)
+	notificator.Register(notificator.InviteReminder)
+
+	go notificator.Run(ctx)
+	go bot.Start(ctx)
+	slog.Info("notifications: ok", slog.String("poll_interval", c.Notifications.PollInterval.String()))
 
 	<-stop
+	cancel()
 	slog.Info("bot: shutting down...")
 	bot.Stop()
 }

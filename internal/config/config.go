@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"time"
 
 	"github.com/ilyakaznacheev/cleanenv"
 	"github.com/joho/godotenv"
@@ -15,21 +16,29 @@ const (
 )
 
 type Config struct {
-	Env      string   `yaml:"env" env-required:"true"`
-	Bot      Bot      `yaml:"bot" env-required:"true"`
-	Ollama   Ollama   `yaml:"ollama" env-required:"true"`
-	Postgres Postgres `yaml:"postgres" env-required:"true"`
+	Env           string        `yaml:"env" env-required:"true"`
+	Bot           Bot           `yaml:"bot" env-required:"true"`
+	Ollama        Ollama        `yaml:"ollama" env-required:"true"`
+	Postgres      Postgres      `yaml:"postgres" env-required:"true"`
+	Notifications Notifications `yaml:"notifications"`
+}
+
+type Bot struct {
+	Token        string `yaml:"token" env-required:"true"`
+	MessagesPath string `yaml:"messages_path" env-required:"true"`
+}
+
+type Notifications struct {
+	PollInterval           time.Duration `yaml:"poll_interval" env-default:"5s"`
+	DateUpcomingIn         time.Duration `yaml:"date_upcoming_in" env-default:"1h"`
+	RegistrationReminderIn time.Duration `yaml:"registration_reminder_in" env-default:"24h"`
+	InviteReminderIn       time.Duration `yaml:"invite_reminder_in" env-default:"10m"`
 }
 
 type Ollama struct {
 	Host  string `yaml:"host" env-required:"true"`
 	Port  string `yaml:"port" env-required:"true"`
 	Model string `yaml:"model" env-required:"true"`
-}
-
-type Bot struct {
-	Token        string `yaml:"token" env-required:"true"`
-	MessagesPath string `yaml:"messages_path" env-required:"true"`
 }
 
 type Postgres struct {

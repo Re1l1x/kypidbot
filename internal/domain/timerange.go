@@ -3,6 +3,7 @@ package domain
 import (
 	"fmt"
 	"math/rand"
+	"time"
 )
 
 var TimeRanges = []string{
@@ -12,6 +13,11 @@ var TimeRanges = []string{
 	"16:00 -- 18:00",
 	"18:00 -- 20:00",
 	"20:00 -- 22:00",
+}
+
+func Timef(t time.Time) string {
+	loc, _ := time.LoadLocation("Europe/Samara")
+	return t.In(loc).Format("02.01 15:04")
 }
 
 func BinaryToSet(binary string) map[string]bool {
@@ -64,6 +70,28 @@ func HasTimeOverlap(timeRange string) bool {
 		}
 	}
 	return false
+}
+
+func MergeSelectedRanges(selected map[string]bool) []string {
+	var merged []string
+	start := -1
+	for i, tr := range TimeRanges {
+		if selected[tr] {
+			if start == -1 {
+				start = i
+			}
+		} else {
+			if start != -1 {
+				merged = append(merged, TimeRanges[start][:5]+" -- "+TimeRanges[i-1][len(TimeRanges[i-1])-5:])
+				start = -1
+			}
+		}
+	}
+	if start != -1 {
+		last := TimeRanges[len(TimeRanges)-1]
+		merged = append(merged, TimeRanges[start][:5]+" -- "+last[len(last)-5:])
+	}
+	return merged
 }
 
 func CalculateTimeIntersection(a, b string) string {

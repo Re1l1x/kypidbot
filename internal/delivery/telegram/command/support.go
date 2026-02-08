@@ -1,4 +1,4 @@
-package callback
+package command
 
 import (
 	"context"
@@ -11,13 +11,11 @@ import (
 	tele "gopkg.in/telebot.v3"
 )
 
-func (h *Handler) Resubmit(c tele.Context) error {
-	sender := c.Sender()
-
-	if err := h.Registration.SetState(context.Background(), sender.ID, domain.UserStateAwaitingSex); err != nil {
+func (h *Handler) Support(c tele.Context) error {
+	if err := h.Registration.SetState(context.Background(), c.Sender().ID, domain.UserStateAwaitingSupport); err != nil {
 		slog.Error("set state", sl.Err(err))
-		return c.Respond()
+		return nil
 	}
 
-	return h.DeleteAndSend(c, messages.M.Profile.Sex.AskRetry, view.SexKeyboard())
+	return c.Send(messages.M.Command.Support.Request, view.CancelSupportKeyboard())
 }

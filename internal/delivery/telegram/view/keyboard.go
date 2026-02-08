@@ -51,6 +51,13 @@ func ResubmitKeyboard() *tele.ReplyMarkup {
 	return menu
 }
 
+func HowItWorksKeyboard() *tele.ReplyMarkup {
+	menu := &tele.ReplyMarkup{}
+	btn := menu.Data(messages.M.UI.Buttons.HowItWorks, "how_it_works")
+	menu.Inline(menu.Row(btn))
+	return menu
+}
+
 func MeetingKeyboard(meetingID string) *tele.ReplyMarkup {
 	menu := &tele.ReplyMarkup{}
 
@@ -61,9 +68,30 @@ func MeetingKeyboard(meetingID string) *tele.ReplyMarkup {
 	return menu
 }
 
+func CancelSupportKeyboard() *tele.ReplyMarkup {
+	menu := &tele.ReplyMarkup{}
+	btn := menu.Data(messages.M.UI.Buttons.CancelSupport, "cancel_support")
+	menu.Inline(menu.Row(btn))
+	return menu
+}
+
 func CancelKeyboard(meetingID string) *tele.ReplyMarkup {
 	menu := &tele.ReplyMarkup{}
 	cancel := menu.Data(messages.M.UI.Buttons.CancelMeeting, "cancel_meeting", meetingID)
 	menu.Inline(menu.Row(cancel))
+	return menu
+}
+
+func ArrivedKeyboard(meetingID string) *tele.ReplyMarkup {
+	menu := &tele.ReplyMarkup{}
+	arrived := menu.Data(messages.M.UI.Buttons.Arrived, "arrived_meeting", meetingID)
+	menu.Inline(menu.Row(arrived))
+	return menu
+}
+
+func CantFindKeyboard(meetingID string) *tele.ReplyMarkup {
+	menu := &tele.ReplyMarkup{}
+	btn := menu.Data(messages.M.UI.Buttons.CantFind, "cant_find_partner", meetingID)
+	menu.Inline(menu.Row(btn))
 	return menu
 }

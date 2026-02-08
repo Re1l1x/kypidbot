@@ -4,6 +4,12 @@ bot:
   token: "telegram-token"
   messages_path: "./messages/messages.yaml"
 
+notifications:
+  poll_interval: 1s
+  date_upcoming_in: 1h
+  registration_reminder_in: 24h
+  invite_reminder_in: 10m
+
 ollama:
   host: "http://ollama"
   port: "11434"

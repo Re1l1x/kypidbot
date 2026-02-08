@@ -1,18 +1,24 @@
 package telegram
 
 import (
+	"context"
+	"fmt"
 	"log/slog"
 	"time"
 
+	"github.com/jus1d/kypidbot/internal/config"
 	"github.com/jus1d/kypidbot/internal/delivery/telegram/callback"
 	"github.com/jus1d/kypidbot/internal/delivery/telegram/command"
 	"github.com/jus1d/kypidbot/internal/delivery/telegram/message"
 	"github.com/jus1d/kypidbot/internal/domain"
+	"github.com/jus1d/kypidbot/internal/lib/logger/sl"
 	"github.com/jus1d/kypidbot/internal/usecase"
+	"github.com/jus1d/kypidbot/internal/version"
 	tele "gopkg.in/telebot.v3"
 )
 
 type Bot struct {
+	env          string
 	bot          *tele.Bot
 	registration *usecase.Registration
 	admin        *usecase.Admin
@@ -21,14 +27,7 @@ type Bot struct {
 	users        domain.UserRepository
 }
 
-func NewBot(
-	token string,
-	registration *usecase.Registration,
-	admin *usecase.Admin,
-	matching *usecase.Matching,
-	meeting *usecase.Meeting,
-	users domain.UserRepository,
-) (*Bot, error) {
+func NewBot(env string, token string, registration *usecase.Registration, admin *usecase.Admin, matching *usecase.Matching, meeting *usecase.Meeting, users domain.UserRepository) (*Bot, error) {
 	pref := tele.Settings{
 		Token:     token,
 		Poller:    &tele.LongPoller{Timeout: 10 * time.Second},
@@ -41,6 +40,7 @@ func NewBot(
 	}
 
 	return &Bot{
+		env:          env,
 		bot:          bot,
 		registration: registration,
 		admin:        admin,
@@ -68,6 +68,9 @@ func (b *Bot) Setup() {
 
 	msg := &message.Handler{
 		Registration: b.registration,
+		Meeting:      b.meeting,
+		Users:        b.users,
+		Bot:          b.bot,
 	}
 
 	btnSexMale := tele.Btn{Unique: "sex_male"}
@@ -77,13 +80,20 @@ func (b *Bot) Setup() {
 	btnResubmit := tele.Btn{Unique: "resubmit"}
 	btnConfirmMeeting := tele.Btn{Unique: "confirm_meeting"}
 	btnCancelMeeting := tele.Btn{Unique: "cancel_meeting"}
+	btnCancelSupport := tele.Btn{Unique: "cancel_support"}
+	btnHowItWorks := tele.Btn{Unique: "how_it_works"}
+	btnArrivedMeeting := tele.Btn{Unique: "arrived_meeting"}
+	btnCantFindPartner := tele.Btn{Unique: "cant_find_partner"}
 
 	b.bot.Use(LogUpdates)
 
 	b.bot.Handle("/start", cmd.Start)
+	b.bot.Handle("/invite", cmd.Invite)
 	b.bot.Handle("/mm", cmd.MM, b.AdminOnly)
 	b.bot.Handle("/promote", cmd.Promote, b.AdminOnly)
 	b.bot.Handle("/demote", cmd.Demote, b.AdminOnly)
+	b.bot.Handle("/about", cmd.About)
+	b.bot.Handle("/support", cmd.Support)
 
 	b.bot.Handle(&btnSexMale, cb.Sex)
 	b.bot.Handle(&btnSexFemale, cb.Sex)
@@ -92,16 +102,38 @@ func (b *Bot) Setup() {
 	b.bot.Handle(&btnResubmit, cb.Resubmit)
 	b.bot.Handle(&btnConfirmMeeting, cb.ConfirmMeeting)
 	b.bot.Handle(&btnCancelMeeting, cb.CancelMeeting)
+	b.bot.Handle(&btnCancelSupport, cb.CancelSupport)
+	b.bot.Handle(&btnHowItWorks, cb.HowItWorks)
+	b.bot.Handle(&btnArrivedMeeting, cb.ArrivedAtMeeting)
+	b.bot.Handle(&btnCantFindPartner, cb.CantFindPartner)
 
 	b.bot.Handle(tele.OnText, msg.Text)
 	b.bot.Handle(tele.OnSticker, msg.Sticker, b.AdminOnly)
 }
 
-func (b *Bot) Start() {
-	slog.Info("bot: ok")
+func (b *Bot) Start(ctx context.Context) {
+	// notify admins on bot restart in production
+	if b.env == config.EnvProduction {
+		admins, err := b.users.GetAdmins(ctx)
+		if err != nil {
+			slog.Error("get admins", sl.Err(err))
+		} else {
+			for _, admin := range admins {
+				content := fmt.Sprintf("Bot started on branch <code>%s</code>, commit <code>%s</code>", version.Branch, version.Commit)
+				_, _ = b.bot.Send(&tele.User{ID: admin.TelegramID}, content)
+			}
+		}
+
+	}
+
+	slog.Info("bot: ok", slog.String("username", b.bot.Me.Username))
 	b.bot.Start()
 }
 
 func (b *Bot) Stop() {
 	b.bot.Stop()
+}
+
+func (b *Bot) TeleBot() *tele.Bot {
+	return b.bot
 }
