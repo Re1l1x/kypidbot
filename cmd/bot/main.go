@@ -16,10 +16,10 @@ import (
 )
 
 func main() {
-	cfg := config.MustLoad()
+	c := config.MustLoad()
 
 	var level slog.Level
-	switch cfg.Env {
+	switch c.Env {
 	case config.EnvProduction:
 		level = slog.LevelInfo
 	default:
@@ -28,7 +28,7 @@ func main() {
 
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: level})))
 
-	db, err := postgres.New(&cfg.Postgres)
+	db, err := postgres.New(&c.Postgres)
 	if err != nil {
 		slog.Error("postgresql: failed to connect", sl.Err(err))
 		os.Exit(1)
@@ -43,11 +43,11 @@ func main() {
 
 	registration := usecase.NewRegistration(userRepo)
 	admin := usecase.NewAdmin(userRepo)
-	matching := usecase.NewMatching(userRepo, meetingRepo, &cfg.Ollama)
+	matching := usecase.NewMatching(userRepo, meetingRepo, &c.Ollama)
 	meeting := usecase.NewMeeting(userRepo, placeRepo, meetingRepo)
 
 	bot, err := telegram.NewBot(
-		cfg.Bot.Token,
+		c.Bot.Token,
 		registration,
 		admin,
 		matching,
@@ -66,12 +66,13 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	notificator := notifications.New(&cfg.Notifications, bot.TeleBot(), userRepo, placeRepo, meetingRepo)
+	notificator := notifications.New(&c.Notifications, bot.TeleBot(), userRepo, placeRepo, meetingRepo)
 	notificator.Register(notificator.MeetingReminder)
 	notificator.Register(notificator.RegisterReminder)
 
 	go notificator.Run(ctx)
 	go bot.Start()
+	slog.Info("notifications: ok", slog.Duration("poll_interval", c.Notifications.PollInterval))
 
 	<-stop
 	slog.Info("bot: shutting down...")
