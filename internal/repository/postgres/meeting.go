@@ -143,3 +143,18 @@ func (r *MeetingRepo) SetCantFind(ctx context.Context, meetingID int64, isDill b
 		`UPDATE meetings SET `+col+` = TRUE WHERE id = $1`, meetingID)
 	return err
 }
+
+func (r *MeetingRepo) GetArrivedMeetingID(ctx context.Context, telegramID int64) (int64, error) {
+	var id int64
+	err := r.db.QueryRowContext(ctx, `
+		SELECT m.id FROM meetings m
+		JOIN users d ON m.dill_id = d.telegram_id
+		JOIN users e ON m.doe_id = e.telegram_id
+		WHERE (d.telegram_id = $1 AND m.dill_state = 'arrived')
+		   OR (e.telegram_id = $1 AND m.doe_state = 'arrived')
+		LIMIT 1`, telegramID).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, nil
+	}
+	return id, err
+}

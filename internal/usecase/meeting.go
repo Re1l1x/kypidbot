@@ -258,6 +258,35 @@ func (m *Meeting) GetPartnerUsername(ctx context.Context, meetingID int64, teleg
 	return "", nil
 }
 
+func (m *Meeting) SetArrived(ctx context.Context, meetingID int64, telegramID int64) error {
+	meeting, err := m.meetings.GetMeetingByID(ctx, meetingID)
+	if err != nil || meeting == nil {
+		return err
+	}
+
+	dill, err := m.users.GetUser(ctx, meeting.DillID)
+	if err != nil {
+		return err
+	}
+	doe, err := m.users.GetUser(ctx, meeting.DoeID)
+	if err != nil {
+		return err
+	}
+
+	if dill != nil && dill.TelegramID == telegramID {
+		return m.meetings.UpdateState(ctx, meetingID, true, domain.StateArrived)
+	}
+	if doe != nil && doe.TelegramID == telegramID {
+		return m.meetings.UpdateState(ctx, meetingID, false, domain.StateArrived)
+	}
+
+	return nil
+}
+
+func (m *Meeting) GetArrivedMeetingID(ctx context.Context, telegramID int64) (int64, error) {
+	return m.meetings.GetArrivedMeetingID(ctx, telegramID)
+}
+
 func (m *Meeting) SetCantFind(ctx context.Context, meetingID int64, telegramID int64) (bool, error) {
 	meeting, err := m.meetings.GetMeetingByID(ctx, meetingID)
 	if err != nil || meeting == nil {

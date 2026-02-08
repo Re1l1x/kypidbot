@@ -11,6 +11,7 @@ const (
 	StateNotConfirmed ConfirmationState = "not_confirmed"
 	StateConfirmed    ConfirmationState = "confirmed"
 	StateCancelled    ConfirmationState = "cancelled"
+	StateArrived      ConfirmationState = "arrived"
 )
 
 type Meeting struct {
@@ -39,4 +40,5 @@ type MeetingRepository interface {
 	GetMeetingsStartingIn(ctx context.Context, interval time.Duration) ([]Meeting, error)
 	MarkNotified(ctx context.Context, meetingID int64) error
 	SetCantFind(ctx context.Context, meetingID int64, isDill bool) error
+	GetArrivedMeetingID(ctx context.Context, telegramID int64) (int64, error)
 }

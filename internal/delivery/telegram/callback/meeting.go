@@ -124,8 +124,13 @@ func (h *Handler) ArrivedAtMeeting(c tele.Context) error {
 	_ = c.Respond()
 
 	telegramID := c.Sender().ID
-	state := fmt.Sprintf("awaiting_appearance:%d", meetingID)
-	if err := h.Registration.SetState(context.Background(), telegramID, state); err != nil {
+
+	if err := h.Meeting.SetArrived(context.Background(), meetingID, telegramID); err != nil {
+		slog.Error("set arrived state", sl.Err(err))
+		return nil
+	}
+
+	if err := h.Registration.SetState(context.Background(), telegramID, domain.UserStateAwaitingAppearance); err != nil {
 		slog.Error("set awaiting_appearance state", sl.Err(err))
 		return nil
 	}

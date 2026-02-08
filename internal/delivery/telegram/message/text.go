@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"strconv"
-	"strings"
 
 	"github.com/jus1d/kypidbot/internal/config/messages"
 	"github.com/jus1d/kypidbot/internal/delivery/telegram/view"
@@ -23,14 +21,12 @@ func (h *Handler) Text(c tele.Context) error {
 		return nil
 	}
 
-	if strings.HasPrefix(state, "awaiting_appearance:") {
-		return h.handleAppearance(c, sender, state)
-	}
-
 	switch state {
-	case "awaiting_about":
+	case domain.UserStateAwaitingAppearance:
+		return h.handleAppearance(c, sender)
+	case domain.UserStateAwaitingAbout:
 		return h.handleAbout(c, sender)
-	case "awaiting_support":
+	case domain.UserStateAwaitingSupport:
 		return h.handleSupport(c, sender)
 	}
 
@@ -43,7 +39,7 @@ func (h *Handler) handleAbout(c tele.Context, sender *tele.User) error {
 		return nil
 	}
 
-	if err := h.Registration.SetState(context.Background(), sender.ID, "awaiting_time"); err != nil {
+	if err := h.Registration.SetState(context.Background(), sender.ID, domain.UserStateAwaitingTime); err != nil {
 		slog.Error("set state", sl.Err(err))
 		return nil
 	}
@@ -59,15 +55,14 @@ func (h *Handler) handleAbout(c tele.Context, sender *tele.User) error {
 	return c.Send(messages.M.Profile.Schedule.Request, view.TimeKeyboard(selected))
 }
 
-func (h *Handler) handleAppearance(c tele.Context, sender *tele.User, state string) error {
-	meetingIDStr := strings.TrimPrefix(state, "awaiting_appearance:")
-	meetingID, err := strconv.ParseInt(meetingIDStr, 10, 64)
-	if err != nil {
-		slog.Error("parse meeting id from state", sl.Err(err), "state", state)
+func (h *Handler) handleAppearance(c tele.Context, sender *tele.User) error {
+	meetingID, err := h.Meeting.GetArrivedMeetingID(context.Background(), sender.ID)
+	if err != nil || meetingID == 0 {
+		slog.Error("get arrived meeting id", sl.Err(err))
 		return nil
 	}
 
-	if err := h.Registration.SetState(context.Background(), sender.ID, "completed"); err != nil {
+	if err := h.Registration.SetState(context.Background(), sender.ID, domain.UserStateCompleted); err != nil {
 		slog.Error("set state", sl.Err(err))
 		return nil
 	}
@@ -92,7 +87,7 @@ func (h *Handler) handleAppearance(c tele.Context, sender *tele.User, state stri
 }
 
 func (h *Handler) handleSupport(c tele.Context, sender *tele.User) error {
-	if err := h.Registration.SetState(context.Background(), sender.ID, "completed"); err != nil {
+	if err := h.Registration.SetState(context.Background(), sender.ID, domain.UserStateCompleted); err != nil {
 		slog.Error("set state", sl.Err(err))
 		return nil
 	}
