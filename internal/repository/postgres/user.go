@@ -248,11 +248,7 @@ func scanUserFromRows(rows *sql.Rows) (*domain.User, error) {
 	return &u, nil
 }
 
-func (r *UserRepo) GetReferralLeaderboard(ctx context.Context, limit int) ([]domain.ReferralLeaderboardEntry, error) {
-    if limit <= 0 {
-        limit = 10
-    }
-    
+func (r *UserRepo) GetReferralLeaderboard(ctx context.Context) ([]domain.ReferralLeaderboardEntry, error) {
     rows, err := r.db.QueryContext(ctx, `
         SELECT 
             users.referrer_id,
@@ -262,10 +258,10 @@ func (r *UserRepo) GetReferralLeaderboard(ctx context.Context, limit int) ([]dom
         FROM users
         JOIN users u ON users.referrer_id = u.telegram_id
         WHERE users.referrer_id IS NOT NULL
-        GROUP BY users.referrer_id, u.username, u.first_name
-        ORDER BY referral_count DESC
-        LIMIT $1
-    `, limit)
+          AND u.is_admin = FALSE
+        GROUP BY users.referrer_id, u.username, u.first_name, u.created_at
+        ORDER BY COUNT(*) DESC, u.created_at ASC
+    `)
     
     if err != nil {
         return nil, err
@@ -293,45 +289,4 @@ func (r *UserRepo) GetReferralLeaderboard(ctx context.Context, limit int) ([]dom
     }
     
     return leaderboard, rows.Err()
-}
-
-func (r *UserRepo) GetUserReferralCount(ctx context.Context, referrerID int64) (int, error) {
-    var count int
-    err := r.db.QueryRowContext(ctx, `
-        SELECT COUNT(*) 
-        FROM users 
-        WHERE referrer_id = $1
-    `, referrerID).Scan(&count)
-    if err != nil {
-        return 0, err
-    }
-    return count, nil
-}
-
-func (r *UserRepo) GetUserLeaderboardPosition(ctx context.Context, userID int64) (int, error) {
-    var position sql.NullInt32
-    err := r.db.QueryRowContext(ctx, `
-        WITH ranked_users AS (
-            SELECT 
-                referrer_id,
-                ROW_NUMBER() OVER (ORDER BY COUNT(*) DESC) as rank
-            FROM users
-            WHERE referrer_id IS NOT NULL
-            GROUP BY referrer_id
-        )
-        SELECT rank FROM ranked_users WHERE referrer_id = $1
-    `, userID).Scan(&position)
-    
-    if err != nil {
-        if errors.Is(err, sql.ErrNoRows) {
-            return 0, nil
-        }
-        return 0, err
-    }
-    
-    if !position.Valid {
-        return 0, nil
-    }
-    
-    return int(position.Int32), nil
 }

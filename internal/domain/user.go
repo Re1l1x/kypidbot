@@ -48,7 +48,5 @@ type UserRepository interface {
 	GetUserByReferralCode(ctx context.Context, code string) (*User, error)
 	SetReferralCode(ctx context.Context, telegramID int64, code string) error
 	SetReferrer(ctx context.Context, telegramID int64, referrerID int64) error
-	GetReferralLeaderboard(ctx context.Context, limit int) ([]ReferralLeaderboardEntry, error)
-	GetUserReferralCount(ctx context.Context, referrerID int64) (int, error)
-    GetUserLeaderboardPosition(ctx context.Context, userID int64) (int, error)
+	GetReferralLeaderboard(ctx context.Context) ([]ReferralLeaderboardEntry, error)
 }

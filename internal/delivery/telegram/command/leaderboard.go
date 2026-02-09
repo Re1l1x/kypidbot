@@ -18,7 +18,7 @@ func (h *Handler) Leaderboard(c tele.Context) error {
         "user_id", sender.ID, 
         "username", sender.Username)
     
-    leaderboard, err := h.Registration.GetReferralLeaderboard(context.Background(), 10)
+    fullLeaderboard, err := h.Registration.GetReferralLeaderboard(context.Background())
     if err != nil {
         slog.Error("failed to get referral leaderboard", 
             sl.Err(err), 
@@ -27,72 +27,65 @@ func (h *Handler) Leaderboard(c tele.Context) error {
         return c.Send(messages.M.Command.Leaderboard.Error)
     }
     
-    userReferralCount, err := h.Registration.GetUserReferralCount(context.Background(), sender.ID)
-    if err != nil {
-        slog.Error("failed to get user referral count", 
-            sl.Err(err), 
-            "user_id", sender.ID)
-        userReferralCount = 0
+    if len(fullLeaderboard) == 0 {
+        return c.Send(messages.M.Command.Leaderboard.Empty)
     }
     
-    userPosition, err := h.Registration.GetUserLeaderboardPosition(context.Background(), sender.ID)
-    if err != nil {
-        slog.Error("failed to get user leaderboard position", 
-            sl.Err(err), 
-            "user_id", sender.ID)
-        userPosition = 0
-    }
-    
+    var userPosition int
     userInTop := false
-    for _, entry := range leaderboard {
+    
+    for i, entry := range fullLeaderboard {
         if entry.ReferrerID == sender.ID {
-            userInTop = true
+            userPosition = i + 1
+            userInTop = i < 10
             break
         }
     }
-
-	userDisplayName := h.formatDisplayName(sender.ID, sender.Username, sender.FirstName)
+    
+    if userPosition == 0 {
+        userInTop = false
+    }
     
     var messageBuilder strings.Builder
-    
     messageBuilder.WriteString(messages.M.Command.Leaderboard.Title)
     messageBuilder.WriteString("\n\n")
     
-    if len(leaderboard) == 0 {
-        messageBuilder.WriteString(messages.M.Command.Leaderboard.Empty)
-    } else {
-        for i, entry := range leaderboard {
-            var emoji string
-            switch i {
-            case 0:
-                emoji = "🥇"
-            case 1:
-                emoji = "🥈"
-            case 2:
-                emoji = "🥉"
-            default:
-                emoji = fmt.Sprintf("%d.", i+1)
-            }
-            
-            displayName := h.formatDisplayName(entry.ReferrerID, entry.Username, entry.FirstName)
-            
-            messageBuilder.WriteString(fmt.Sprintf(
-                "%s %s -- %d\n",
-                emoji,
-                displayName,
-                entry.ReferralCount,
-            ))
+    for i := 0; i < len(fullLeaderboard) && i < 10; i++ {
+        entry := fullLeaderboard[i]
+        
+        var emoji string
+        switch i {
+        case 0:
+            emoji = "🥇"
+        case 1:
+            emoji = "🥈"
+        case 2:
+            emoji = "🥉"
+        default:
+            emoji = fmt.Sprintf("%d.", i+1)
         }
-		
-        if !userInTop && userPosition > 0 && userReferralCount > 0 {
-            messageBuilder.WriteString("\n")
-            messageBuilder.WriteString(fmt.Sprintf(
-                "%d. %s -- %d\n",
-                userPosition,
-                userDisplayName,
-                userReferralCount,
-            ))
-        }
+        
+        displayName := h.formatDisplayName(entry.ReferrerID, entry.Username, entry.FirstName)
+        
+        messageBuilder.WriteString(fmt.Sprintf(
+            "%s %s -- %d\n",
+            emoji,
+            displayName,
+            entry.ReferralCount,
+        ))
+    }
+    
+    if !userInTop && userPosition > 0 {
+        messageBuilder.WriteString("\n")
+        
+        userDisplayName := h.formatDisplayName(sender.ID, sender.Username, sender.FirstName)
+        
+        messageBuilder.WriteString(fmt.Sprintf(
+            "%d. %s -- %d\n",
+            userPosition,
+            userDisplayName,
+            fullLeaderboard[userPosition-1].ReferralCount,
+        ))
     }
     
     messageBuilder.WriteString("\n" + messages.M.Command.Leaderboard.Footer)
