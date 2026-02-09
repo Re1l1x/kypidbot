@@ -77,7 +77,7 @@ func (h *Handler) Leaderboard(c tele.Context) error {
             displayName := h.formatDisplayName(entry.ReferrerID, entry.Username, entry.FirstName)
             
             messageBuilder.WriteString(fmt.Sprintf(
-                "%s %s — %d\n",
+                "%s %s -- %d\n",
                 emoji,
                 displayName,
                 entry.ReferralCount,
@@ -87,7 +87,7 @@ func (h *Handler) Leaderboard(c tele.Context) error {
         if !userInTop && userPosition > 0 && userReferralCount > 0 {
             messageBuilder.WriteString("\n")
             messageBuilder.WriteString(fmt.Sprintf(
-                "%d. %s — %d\n",
+                "%d. %s -- %d\n",
                 userPosition,
                 userDisplayName,
                 userReferralCount,
