@@ -2,19 +2,13 @@ package command
 
 import (
 	"context"
-	"crypto/rand"
 	"fmt"
 	"log/slog"
-	"math/big"
 
 	"github.com/jus1d/kypidbot/internal/config/messages"
+	"github.com/jus1d/kypidbot/internal/domain"
 	"github.com/jus1d/kypidbot/internal/lib/logger/sl"
 	tele "gopkg.in/telebot.v3"
-)
-
-const (
-	referralCodeLen     = 8
-	referralCodeCharset = "abcdefghijklmnopqrstuvwxyz0123456789"
 )
 
 func (h *Handler) Invite(c tele.Context) error {
@@ -31,7 +25,7 @@ func (h *Handler) Invite(c tele.Context) error {
 
 	code := user.ReferralCode
 	if code == "" {
-		code, err = generateReferralCode()
+		code, err = domain.GenerateReferralCode()
 		if err != nil {
 			slog.Error("generate referral code", sl.Err(err))
 			return nil
@@ -47,16 +41,4 @@ func (h *Handler) Invite(c tele.Context) error {
 	text := messages.Format(messages.M.Command.Invite, map[string]string{"link": link})
 
 	return c.Send(text)
-}
-
-func generateReferralCode() (string, error) {
-	b := make([]byte, referralCodeLen)
-	for i := range b {
-		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(referralCodeCharset))))
-		if err != nil {
-			return "", err
-		}
-		b[i] = referralCodeCharset[n.Int64()]
-	}
-	return string(b), nil
 }

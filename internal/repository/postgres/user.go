@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
+	"time"
 
 	"github.com/jus1d/kypidbot/internal/domain"
 )
@@ -36,7 +38,7 @@ func (r *UserRepo) SaveUser(ctx context.Context, u *domain.User) error {
 func (r *UserRepo) GetUser(ctx context.Context, telegramID int64) (*domain.User, error) {
 	row := r.db.QueryRowContext(ctx, `
 		SELECT telegram_id, username, first_name, last_name, is_bot,
-		       language_code, is_premium, sex, about, state, time_ranges, is_admin,
+		       language_code, is_premium, sex, about, state, registration_notified, invite_notified, time_ranges, is_admin, opted_out,
 		       referral_code, referrer_id, created_at
 		FROM users WHERE telegram_id = $1`, telegramID)
 	return scanUser(row)
@@ -45,7 +47,7 @@ func (r *UserRepo) GetUser(ctx context.Context, telegramID int64) (*domain.User,
 func (r *UserRepo) GetUserByUsername(ctx context.Context, username string) (*domain.User, error) {
 	row := r.db.QueryRowContext(ctx, `
 		SELECT telegram_id, username, first_name, last_name, is_bot,
-		       language_code, is_premium, sex, about, state, time_ranges, is_admin,
+		       language_code, is_premium, sex, about, state, registration_notified, invite_notified, time_ranges, is_admin, opted_out,
 		       referral_code, referrer_id, created_at
 		FROM users WHERE username = $1`, username)
 	return scanUser(row)
@@ -54,23 +56,23 @@ func (r *UserRepo) GetUserByUsername(ctx context.Context, username string) (*dom
 func (r *UserRepo) GetUserByReferralCode(ctx context.Context, code string) (*domain.User, error) {
 	row := r.db.QueryRowContext(ctx, `
 		SELECT telegram_id, username, first_name, last_name, is_bot,
-		       language_code, is_premium, sex, about, state, time_ranges, is_admin,
+		       language_code, is_premium, sex, about, state, registration_notified, invite_notified, time_ranges, is_admin, opted_out,
 		       referral_code, referrer_id, created_at
 		FROM users WHERE referral_code = $1`, code)
 	return scanUser(row)
 }
 
-func (r *UserRepo) GetUserState(ctx context.Context, telegramID int64) (string, error) {
-	var state string
+func (r *UserRepo) GetUserState(ctx context.Context, telegramID int64) (domain.UserState, error) {
+	var state domain.UserState
 	err := r.db.QueryRowContext(ctx,
 		`SELECT state FROM users WHERE telegram_id = $1`, telegramID).Scan(&state)
 	if errors.Is(err, sql.ErrNoRows) {
-		return "start", nil
+		return domain.UserStateStart, nil
 	}
 	return state, err
 }
 
-func (r *UserRepo) SetUserState(ctx context.Context, telegramID int64, state string) error {
+func (r *UserRepo) SetUserState(ctx context.Context, telegramID int64, state domain.UserState) error {
 	_, err := r.db.ExecContext(ctx,
 		`UPDATE users SET state = $1 WHERE telegram_id = $2`, state, telegramID)
 	return err
@@ -135,9 +137,9 @@ func (r *UserRepo) SetReferrer(ctx context.Context, telegramID int64, referrerID
 func (r *UserRepo) GetVerifiedUsers(ctx context.Context) ([]domain.User, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT telegram_id, username, first_name, last_name, is_bot,
-		       language_code, is_premium, sex, about, state, time_ranges, is_admin,
+		       language_code, is_premium, sex, about, state, registration_notified, invite_notified, time_ranges, is_admin, opted_out,
 		       referral_code, referrer_id, created_at
-		FROM users WHERE state = 'completed'`)
+		FROM users WHERE state = 'completed' AND opted_out = FALSE`)
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +159,7 @@ func (r *UserRepo) GetVerifiedUsers(ctx context.Context) ([]domain.User, error) 
 func (r *UserRepo) GetAdmins(ctx context.Context) ([]domain.User, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT telegram_id, username, first_name, last_name, is_bot,
-		       language_code, is_premium, sex, about, state, time_ranges, is_admin,
+		       language_code, is_premium, sex, about, state, registration_notified, invite_notified, time_ranges, is_admin, opted_out,
 		       referral_code, referrer_id, created_at
 		FROM users WHERE is_admin = true`)
 	if err != nil {
@@ -197,7 +199,7 @@ func scanUser(row *sql.Row) (*domain.User, error) {
 	err := row.Scan(
 		&u.TelegramID, &username, &firstName, &lastName,
 		&u.IsBot, &languageCode, &u.IsPremium, &sex, &u.About,
-		&u.State, &u.TimeRanges, &u.IsAdmin,
+		&u.State, &u.RegistrationNotified, &u.InviteNotified, &u.TimeRanges, &u.IsAdmin, &u.OptedOut,
 		&referralCode, &referrerID, &u.CreatedAt,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -228,7 +230,7 @@ func scanUserFromRows(rows *sql.Rows) (*domain.User, error) {
 	err := rows.Scan(
 		&u.TelegramID, &username, &firstName, &lastName,
 		&u.IsBot, &languageCode, &u.IsPremium, &sex, &u.About,
-		&u.State, &u.TimeRanges, &u.IsAdmin,
+		&u.State, &u.RegistrationNotified, &u.InviteNotified, &u.TimeRanges, &u.IsAdmin, &u.OptedOut,
 		&referralCode, &referrerID, &u.CreatedAt,
 	)
 	if err != nil {
@@ -290,3 +292,64 @@ func (r *UserRepo) GetReferralLeaderboard(ctx context.Context) ([]domain.Referra
     
     return leaderboard, rows.Err()
 }
+
+func (r *UserRepo) MarkNotified(ctx context.Context, telegramID int64) error {
+	_, err := r.db.ExecContext(ctx, `UPDATE users SET registration_notified = TRUE WHERE telegram_id = $1`, telegramID)
+	return err
+}
+
+func (r *UserRepo) GetNotCompleted(ctx context.Context, interval time.Duration) ([]domain.User, error) {
+	secs := fmt.Sprintf("%ds", int(interval.Seconds()))
+	rows, err := r.db.QueryContext(ctx, `SELECT telegram_id, username, first_name, last_name, is_bot,
+	       language_code, is_premium, sex, about, state, registration_notified, invite_notified, time_ranges, is_admin, opted_out,
+	       referral_code, referrer_id, created_at
+	FROM users WHERE now() - created_at > $1::interval AND registration_notified = FALSE AND state <> 'completed'`, secs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []domain.User
+	for rows.Next() {
+		u, err := scanUserFromRows(rows)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, *u)
+	}
+	return users, rows.Err()
+}
+
+func (r *UserRepo) GetForInviteReminder(ctx context.Context, interval time.Duration) ([]domain.User, error) {
+	secs := fmt.Sprintf("%ds", int(interval.Seconds()))
+	rows, err := r.db.QueryContext(ctx, `SELECT telegram_id, username, first_name, last_name, is_bot,
+	       language_code, is_premium, sex, about, state, registration_notified, invite_notified, time_ranges, is_admin, opted_out,
+	       referral_code, referrer_id, created_at
+	FROM users WHERE now() - created_at > $1::interval AND invite_notified = FALSE AND is_admin = FALSE`, secs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []domain.User
+	for rows.Next() {
+		u, err := scanUserFromRows(rows)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, *u)
+	}
+	return users, rows.Err()
+}
+
+func (r *UserRepo) MarkInviteNotified(ctx context.Context, telegramID int64) error {
+	_, err := r.db.ExecContext(ctx, `UPDATE users SET invite_notified = TRUE WHERE telegram_id = $1`, telegramID)
+	return err
+}
+
+func (r *UserRepo) SetOptedOut(ctx context.Context, telegramID int64, optedOut bool) error {
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE users SET opted_out = $1 WHERE telegram_id = $2`, optedOut, telegramID)
+	return err
+}
+

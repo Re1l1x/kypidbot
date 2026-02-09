@@ -1,10 +1,9 @@
 services:
   kypidbot:
     image: ghcr.io/jus1d/kypidbot:latest
-    build: .
     container_name: kypidbot
-    environment:
-      CONFIG_PATH: ${CONFIG_PATH}
+    env_file:
+      - ./kypidbot.env
     volumes:
       - ./config:/app/config
       - ./logs:/app/logs
@@ -18,10 +17,11 @@ services:
   postgres:
     image: postgres:17-alpine
     container_name: postgres
+    env_file:
+      - ./postgres.env
     environment:
       POSTGRES_USER: kypidbot
       POSTGRES_DB: kypidbot
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -38,6 +38,16 @@ services:
       - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
+    restart: unless-stopped
+
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: watchtower
+    command: --interval 30 kypidbot
+    environment:
+      WATCHTOWER_CLEANUP: "true"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
 
 volumes:

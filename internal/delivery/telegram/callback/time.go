@@ -14,7 +14,7 @@ import (
 func (h *Handler) ConfirmTime(c tele.Context) error {
 	sender := c.Sender()
 
-	if err := h.Registration.SetState(context.Background(), sender.ID, "completed"); err != nil {
+	if err := h.Registration.SetState(context.Background(), sender.ID, domain.UserStateCompleted); err != nil {
 		slog.Error("set state", sl.Err(err))
 		return c.Respond()
 	}
@@ -36,7 +36,7 @@ func (h *Handler) ConfirmTime(c tele.Context) error {
 		slog.Error("edit time message", sl.Err(err))
 	}
 
-	return c.Send(messages.M.Registration.Completed, view.ResubmitKeyboard())
+	return c.Send(messages.M.Registration.Completed, view.RegistrationCompletedKeyboard(false))
 }
 
 func (h *Handler) Time(c tele.Context) error {
