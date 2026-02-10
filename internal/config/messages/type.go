@@ -152,6 +152,7 @@ type MatchingErrors struct {
 type MatchingSuccess struct {
 	Matched      string `yaml:"matched" env-required:"true"`
 	MeetingsSent string `yaml:"meetings_sent" env-required:"true"`
+	NotMatched   string `yaml:"not_matched" env-required:"true"`
 }
 
 type MeetingSection struct {

@@ -13,6 +13,7 @@ type MatchResult struct {
 	PairsCount     int
 	FullMatchCount int
 	UsersCount     int
+	UnmatchedIDs   []int64
 }
 
 type DryPair struct {
@@ -94,10 +95,28 @@ func (m *Matching) RunMatch(ctx context.Context) (*MatchResult, error) {
 		}
 	}
 
+	matched := make(map[int]bool)
+	for _, p := range pairs {
+		matched[p.I] = true
+		matched[p.J] = true
+	}
+	for _, fm := range fullMatches {
+		matched[fm.I] = true
+		matched[fm.J] = true
+	}
+
+	var unmatchedIDs []int64
+	for i, u := range users {
+		if !matched[i] {
+			unmatchedIDs = append(unmatchedIDs, u.TelegramID)
+		}
+	}
+
 	return &MatchResult{
 		PairsCount:     len(pairs),
 		FullMatchCount: len(fullMatches),
 		UsersCount:     len(users),
+		UnmatchedIDs:   unmatchedIDs,
 	}, nil
 }
 

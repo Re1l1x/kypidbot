@@ -2,6 +2,7 @@ package command
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/jus1d/kypidbot/internal/delivery/telegram/view"
 	"github.com/jus1d/kypidbot/internal/domain"
 	"github.com/jus1d/kypidbot/internal/lib/logger/sl"
+	"github.com/jus1d/kypidbot/internal/usecase"
 	tele "gopkg.in/telebot.v3"
 )
 
@@ -50,10 +52,16 @@ func (h *Handler) MM(c tele.Context) error {
 	meetResult, err := h.Meeting.CreateMeetings(context.Background())
 	if err != nil {
 		slog.Error("create meetings", sl.Err(err))
-		if err.Error() == "no pairs" {
+		if errors.Is(err, usecase.ErrNoPairs) {
+			for _, id := range result.UnmatchedIDs {
+				_, sendErr := h.Bot.Send(&tele.User{ID: id}, messages.M.Matching.Success.NotMatched)
+				if sendErr != nil {
+					slog.Error("send not matched", sl.Err(sendErr), "telegram_id", id)
+				}
+			}
 			return c.Send(messages.M.Matching.Errors.NoPairs)
 		}
-		if err.Error() == "no places" {
+		if errors.Is(err, usecase.ErrNoPlaces) {
 			return c.Send(messages.M.Matching.Errors.NoPlaces)
 		}
 		return nil
@@ -103,6 +111,13 @@ func (h *Handler) MM(c tele.Context) error {
 		}
 
 		count++
+	}
+
+	for _, id := range result.UnmatchedIDs {
+		_, err := h.Bot.Send(&tele.User{ID: id}, messages.M.Matching.Success.NotMatched)
+		if err != nil {
+			slog.Error("send not matched", sl.Err(err), "telegram_id", id)
+		}
 	}
 
 	return c.Send(messages.Format(messages.M.Matching.Success.MeetingsSent, map[string]string{
