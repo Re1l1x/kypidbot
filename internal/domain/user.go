@@ -35,6 +35,7 @@ type User struct {
 	TimeRanges           string
 	IsAdmin              bool
 	OptedOut             bool
+	IsRegistered         bool
 	ReferralCode         string
 	ReferrerID           *int64
 	CreatedAt            time.Time
