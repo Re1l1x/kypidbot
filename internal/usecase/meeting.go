@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"math/rand"
@@ -45,6 +46,11 @@ func NewMeeting(users domain.UserRepository, places domain.PlaceRepository, meet
 	}
 }
 
+var (
+	ErrNoPlaces = errors.New("matching: no places")
+	ErrNoPairs  = errors.New("matching: no pairs")
+)
+
 func (m *Meeting) CreateMeetings(ctx context.Context) (*MeetResult, error) {
 	regularMeetings, err := m.meetings.GetRegularMeetings(ctx)
 	if err != nil {
@@ -57,7 +63,7 @@ func (m *Meeting) CreateMeetings(ctx context.Context) (*MeetResult, error) {
 	}
 
 	if len(regularMeetings) == 0 && len(fullMeetings) == 0 {
-		return nil, fmt.Errorf("no pairs")
+		return nil, ErrNoPairs
 	}
 
 	places, err := m.places.GetAllPlaces(ctx)
@@ -66,7 +72,7 @@ func (m *Meeting) CreateMeetings(ctx context.Context) (*MeetResult, error) {
 	}
 
 	if len(places) == 0 && len(regularMeetings) > 0 {
-		return nil, fmt.Errorf("no places")
+		return nil, ErrNoPlaces
 	}
 
 	var result MeetResult
