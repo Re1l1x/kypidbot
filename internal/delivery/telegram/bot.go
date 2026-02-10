@@ -91,14 +91,18 @@ func (b *Bot) Setup() {
 
 	b.bot.Use(LogUpdates)
 
+	// user commands
 	b.bot.Handle("/start", cmd.Start)
 	b.bot.Handle("/invite", cmd.Invite)
 	b.bot.Handle("/leaderboard", cmd.Leaderboard)
+	b.bot.Handle("/about", cmd.About)
+	b.bot.Handle("/support", cmd.Support)
+
+	// admin commands
 	b.bot.Handle("/mm", cmd.MM, b.AdminOnly)
 	b.bot.Handle("/promote", cmd.Promote, b.AdminOnly)
 	b.bot.Handle("/demote", cmd.Demote, b.AdminOnly)
-	b.bot.Handle("/about", cmd.About)
-	b.bot.Handle("/support", cmd.Support)
+	b.bot.Handle("/statistics", cmd.Statistics, b.AdminOnly)
 
 	b.bot.Handle(&btnSexMale, cb.Sex)
 	b.bot.Handle(&btnSexFemale, cb.Sex)

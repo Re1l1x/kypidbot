@@ -75,6 +75,11 @@ command:
     ticket: "<b>Обращение в поддержку</b>\nОт: @{username}\n\n{description}"
     cancelled: "Обращение в поддержку отменено"
 
+  statistics: |
+    Новые пользователи:
+    - за 24ч: {registered_daily}
+    - за неделю: {registered_weekly}
+
 registration:
   completed: |
     <b>Готово -- регистрация завершена!</b>

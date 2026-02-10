@@ -251,8 +251,8 @@ func scanUserFromRows(rows *sql.Rows) (*domain.User, error) {
 }
 
 func (r *UserRepo) GetReferralLeaderboard(ctx context.Context) ([]domain.ReferralLeaderboardEntry, error) {
-    rows, err := r.db.QueryContext(ctx, `
-        SELECT 
+	rows, err := r.db.QueryContext(ctx, `
+        SELECT
             users.referrer_id,
             COUNT(*) as referral_count,
             u.username,
@@ -264,33 +264,33 @@ func (r *UserRepo) GetReferralLeaderboard(ctx context.Context) ([]domain.Referra
         GROUP BY users.referrer_id, u.username, u.first_name, u.created_at
         ORDER BY COUNT(*) DESC, u.created_at ASC
     `)
-    
-    if err != nil {
-        return nil, err
-    }
-    defer rows.Close()
-    
-    var leaderboard []domain.ReferralLeaderboardEntry
-    for rows.Next() {
-        var entry domain.ReferralLeaderboardEntry
-        var username, firstName sql.NullString
-        
-        err := rows.Scan(
-            &entry.ReferrerID,
-            &entry.ReferralCount,
-            &username,
-            &firstName,
-        )
-        if err != nil {
-            return nil, err
-        }
-        
-        entry.Username = username.String
-        entry.FirstName = firstName.String
-        leaderboard = append(leaderboard, entry)
-    }
-    
-    return leaderboard, rows.Err()
+
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var leaderboard []domain.ReferralLeaderboardEntry
+	for rows.Next() {
+		var entry domain.ReferralLeaderboardEntry
+		var username, firstName sql.NullString
+
+		err := rows.Scan(
+			&entry.ReferrerID,
+			&entry.ReferralCount,
+			&username,
+			&firstName,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		entry.Username = username.String
+		entry.FirstName = firstName.String
+		leaderboard = append(leaderboard, entry)
+	}
+
+	return leaderboard, rows.Err()
 }
 
 func (r *UserRepo) MarkNotified(ctx context.Context, telegramID int64) error {
@@ -353,3 +353,15 @@ func (r *UserRepo) SetOptedOut(ctx context.Context, telegramID int64, optedOut b
 	return err
 }
 
+func (r *UserRepo) GetLastRegisteredCount(ctx context.Context) (daily uint, weekly uint, err error) {
+	row := r.db.QueryRowContext(ctx, `SELECT
+		COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '1 day')  AS users_last_24h,
+		COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '7 days') AS users_last_7d
+		FROM users`)
+	err = row.Scan(&daily, &weekly)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	return daily, weekly, nil
+}
