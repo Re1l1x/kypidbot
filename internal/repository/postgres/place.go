@@ -21,15 +21,6 @@ func (r *PlaceRepo) SavePlace(ctx context.Context, description string) error {
 	return err
 }
 
-func (r *PlaceRepo) GetPlaceDescription(ctx context.Context, placeID int64) (string, error) {
-	var description string
-	err := r.db.QueryRowContext(ctx, `SELECT description FROM places WHERE id = $1`, placeID).Scan(&description)
-	if err != nil {
-		return "", err
-	}
-	return description, nil
-}
-
 func (r *PlaceRepo) GetPlace(ctx context.Context, placeID int64) (*domain.Place, error) {
 	var p domain.Place
 	err := r.db.QueryRowContext(ctx,

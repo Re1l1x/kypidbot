@@ -540,19 +540,6 @@ func (m *Meeting) SetCantFind(ctx context.Context, meetingID int64, telegramID i
 	return meeting.DillCantFind, nil
 }
 
-func (m *Meeting) GetPlaceDescription(ctx context.Context, placeID int64) (string, error) {
-	places, err := m.places.GetAllPlaces(ctx)
-	if err != nil {
-		return "", err
-	}
-	for _, p := range places {
-		if p.ID == placeID {
-			return p.Description, nil
-		}
-	}
-	return "", nil
-}
-
 func (m *Meeting) GetPlace(ctx context.Context, placeID int64) (*domain.Place, error) {
 	return m.places.GetPlace(ctx, placeID)
 }
