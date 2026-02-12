@@ -33,8 +33,8 @@ func (r *PlaceRepo) GetPlaceDescription(ctx context.Context, placeID int64) (str
 func (r *PlaceRepo) GetPlace(ctx context.Context, placeID int64) (*domain.Place, error) {
 	var p domain.Place
 	err := r.db.QueryRowContext(ctx,
-		`SELECT id, description, photo_url FROM places WHERE id = $1`,
-		placeID).Scan(&p.ID, &p.Description, &p.PhotoURL)
+		`SELECT id, description, photo_url, quality FROM places WHERE id = $1`,
+		placeID).Scan(&p.ID, &p.Description, &p.PhotoURL, &p.Quality)
 	if err != nil {
 		return nil, err
 	}
@@ -42,7 +42,7 @@ func (r *PlaceRepo) GetPlace(ctx context.Context, placeID int64) (*domain.Place,
 }
 
 func (r *PlaceRepo) GetAllPlaces(ctx context.Context) ([]domain.Place, error) {
-	rows, err := r.db.QueryContext(ctx, `SELECT id, description, photo_url FROM places`)
+	rows, err := r.db.QueryContext(ctx, `SELECT id, description, photo_url, quality FROM places ORDER BY quality DESC`)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +51,7 @@ func (r *PlaceRepo) GetAllPlaces(ctx context.Context) ([]domain.Place, error) {
 	var places []domain.Place
 	for rows.Next() {
 		var p domain.Place
-		if err := rows.Scan(&p.ID, &p.Description, &p.PhotoURL); err != nil {
+		if err := rows.Scan(&p.ID, &p.Description, &p.PhotoURL, &p.Quality); err != nil {
 			return nil, err
 		}
 		places = append(places, p)

@@ -16,57 +16,15 @@ import (
 	tele "gopkg.in/telebot.v3"
 )
 
-const mmSticker = "CAACAgIAAxkBAANtaYKDDtR5d1478iPkCrZr2xnZOpMAAgIBAAJWnb0KTuJsgctA5P84BA"
-
-func (h *Handler) MM(c tele.Context) error {
-	sticker := &tele.Sticker{File: tele.File{FileID: mmSticker}}
-	stickerMsg, err := h.Bot.Send(c.Chat(), sticker)
+func (h *Handler) SendInvites(c tele.Context) error {
+	ctx := context.Background()
+	meetResult, err := h.Meeting.GetMeetingsForInvites(ctx)
 	if err != nil {
-		slog.Error("send sticker", sl.Err(err))
-	}
-
-	result, err := h.Matching.RunMatch(context.Background())
-	if err != nil {
-		if stickerMsg != nil {
-			_ = h.Bot.Delete(stickerMsg)
-		}
-		slog.Error("run match", sl.Err(err))
-		return c.Send(messages.M.Matching.Errors.NotEnoughUsers)
-	}
-
-	if stickerMsg != nil {
-		_ = h.Bot.Delete(stickerMsg)
-	}
-
-	fullInfo := ""
-	if result.FullMatchCount > 0 {
-		fullInfo = fmt.Sprintf("\n\nполных совпадений (без общего времени): %d", result.FullMatchCount)
-	}
-
-	if err := c.Send(messages.Format(messages.M.Matching.Success.Matched, map[string]string{
-		"pairs":     fmt.Sprintf("%d", result.PairsCount),
-		"users":     fmt.Sprintf("%d", result.UsersCount),
-		"full_info": fullInfo,
-	})); err != nil {
-		slog.Error("send match result", sl.Err(err))
-	}
-
-	meetResult, err := h.Meeting.CreateMeetings(context.Background())
-	if err != nil {
-		slog.Error("create meetings", sl.Err(err))
+		slog.Error("get meetings for invites", sl.Err(err))
 		if errors.Is(err, usecase.ErrNoPairs) {
-			for _, id := range result.UnmatchedIDs {
-				_, sendErr := h.Bot.Send(&tele.User{ID: id}, messages.M.Matching.Success.NotMatched)
-				if sendErr != nil {
-					slog.Error("send not matched", sl.Err(sendErr), "telegram_id", id)
-				}
-			}
 			return c.Send(messages.M.Matching.Errors.NoPairs)
 		}
-		if errors.Is(err, usecase.ErrNoPlaces) {
-			return c.Send(messages.M.Matching.Errors.NoPlaces)
-		}
-		return c.Send(fmt.Sprintf("Ошибка при создании встреч: %v", err))
+		return c.Send(fmt.Sprintf("Ошибка: %v", err))
 	}
 
 	count := 0
@@ -81,7 +39,7 @@ func (h *Handler) MM(c tele.Context) error {
 		kb := view.MeetingKeyboard(fmt.Sprintf("%d", m.MeetingID))
 
 		if m.PhotoURL != "" {
-			photoReader, err := h.S3.GetPhoto(context.Background(), m.PhotoURL)
+			photoReader, err := h.S3.GetPhoto(ctx, m.PhotoURL)
 			if err != nil {
 				slog.Error("get photo from s3", sl.Err(err))
 				_, err := h.Bot.Send(&tele.User{ID: m.DillID}, message, kb)
@@ -155,10 +113,15 @@ func (h *Handler) MM(c tele.Context) error {
 		count++
 	}
 
-	for _, id := range result.UnmatchedIDs {
-		_, err := h.Bot.Send(&tele.User{ID: id}, messages.M.Matching.Success.NotMatched)
-		if err != nil {
-			slog.Error("send not matched", sl.Err(err), "telegram_id", id)
+	unmatchedIDs, err := h.Meeting.GetUnmatchedUserIDs(ctx)
+	if err != nil {
+		slog.Error("get unmatched users", sl.Err(err))
+	} else {
+		for _, id := range unmatchedIDs {
+			_, err := h.Bot.Send(&tele.User{ID: id}, messages.M.Matching.Success.NotMatched)
+			if err != nil {
+				slog.Error("send not matched", sl.Err(err), "telegram_id", id)
+			}
 		}
 	}
 

@@ -59,6 +59,7 @@ func PickRandomTime(timeIntersection string) string {
 
 	begin := tr[:2]
 	minutes := rand.Intn(12) * 5
+	// minutes := rand.Intn(6) * 10
 
 	return fmt.Sprintf("%s:%02d", begin, minutes)
 }

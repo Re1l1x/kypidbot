@@ -106,8 +106,9 @@ func (b *Bot) Setup() {
 	b.bot.Handle("/support", cmd.Support)
 
 	// admin commands
-	b.bot.Handle("/mm", cmd.MM, b.AdminOnly)
-	b.bot.Handle("/pairs", cmd.Pairs, b.AdminOnly)
+	b.bot.Handle("/matchpairs", cmd.MatchPairs, b.AdminOnly)
+	b.bot.Handle("/sendinvites", cmd.SendInvites, b.AdminOnly)
+	b.bot.Handle("/drypairs", cmd.DryPairs, b.AdminOnly)
 	b.bot.Handle("/promote", cmd.Promote, b.AdminOnly)
 	b.bot.Handle("/demote", cmd.Demote, b.AdminOnly)
 	b.bot.Handle("/admin", cmd.AdminPanel, b.AdminOnly)
