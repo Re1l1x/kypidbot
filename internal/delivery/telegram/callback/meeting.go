@@ -48,14 +48,15 @@ func (h *Handler) ConfirmMeeting(c tele.Context) error {
 			return nil
 		}
 
-		place, err := h.Meeting.GetPlaceDescription(context.Background(), *meeting.PlaceID)
+		place, err := h.Meeting.GetPlace(context.Background(), *meeting.PlaceID)
 		if err != nil {
-			slog.Error("get place description", sl.Err(err))
+			slog.Error("get place", sl.Err(err))
+			return nil
 		}
 
 		content := messages.Format(
 			messages.M.Meeting.Invite.Message+"\n"+messages.M.Meeting.Status.Confirmed,
-			map[string]string{"place": place, "time": domain.Timef(*meeting.Time)},
+			map[string]string{"place": place.Description, "route": place.Route, "time": domain.Timef(*meeting.Time)},
 		)
 
 		cancelkb := view.CancelKeyboard(fmt.Sprintf("%d", meetingID))
@@ -92,6 +93,7 @@ func (h *Handler) ConfirmMeeting(c tele.Context) error {
 
 		finalMessage := messages.Format(messages.M.Meeting.Status.BothConfirmed, map[string]string{
 			"place": place.Description,
+			"route": place.Route,
 			"time":  domain.Timef(*meeting.Time),
 		})
 

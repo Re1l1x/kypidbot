@@ -16,6 +16,7 @@ type MeetingNotification struct {
 	DillID    int64
 	DoeID     int64
 	Place     string
+	Route     string
 	PhotoURL  string
 	Time      time.Time
 }
@@ -186,6 +187,7 @@ func (m *Meeting) CreateMeetings(ctx context.Context) (*MeetResult, error) {
 			DillID:    dill.TelegramID,
 			DoeID:     doe.TelegramID,
 			Place:     assignedPlace.Description,
+			Route:     assignedPlace.Route,
 			PhotoURL:  assignedPlace.PhotoURL,
 			Time:      meetingTime,
 		})
@@ -266,6 +268,7 @@ func (m *Meeting) GetMeetingsForInvites(ctx context.Context) (*MeetResult, error
 			DillID:    dill.TelegramID,
 			DoeID:     doe.TelegramID,
 			Place:     place.Description,
+			Route:     place.Route,
 			PhotoURL:  place.PhotoURL,
 			Time:      *mt.Time,
 		})

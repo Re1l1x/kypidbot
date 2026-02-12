@@ -6,6 +6,7 @@ type Place struct {
 	ID          int64
 	Description string
 	PhotoURL    string
+	Route       string
 	Quality     int
 }
 

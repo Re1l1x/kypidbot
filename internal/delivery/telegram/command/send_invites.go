@@ -33,6 +33,7 @@ func (h *Handler) SendInvites(c tele.Context) error {
 		content := fmt.Sprintf("%s\n%s", messages.M.Meeting.Invite.Message, messages.M.Meeting.Invite.WaitConfirmation)
 		message := messages.Format(content, map[string]string{
 			"place": m.Place,
+			"route": m.Route,
 			"time":  domain.Timef(m.Time),
 		})
 

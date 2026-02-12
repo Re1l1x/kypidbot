@@ -17,7 +17,7 @@ var TimeRanges = []string{
 
 func Timef(t time.Time) string {
 	loc, _ := time.LoadLocation("Europe/Samara")
-	return t.In(loc).Format("02.01 15:04")
+	return t.In(loc).Format("02.01 в 15:04")
 }
 
 func BinaryToSet(binary string) map[string]bool {
