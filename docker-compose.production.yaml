@@ -46,8 +46,6 @@ services:
     command: server /data --console-address ":9001"
     env_file:
       - ./minio.env
-    ports:
-      - "31410:9001"
     volumes:
       - minio_data:/data
     healthcheck:
@@ -70,3 +68,4 @@ services:
 volumes:
   pgdata:
   ollama_data:
+  minio_data:
